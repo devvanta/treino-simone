@@ -89,6 +89,10 @@ h1, h2, h3, h4 {
   color: #FFFFFF;
   animation: slideUp 0.5s ease;
 }
+/* audio tags sem controls nao devem ter caixa visivel */
+audio:not([controls]) {
+  display: none !important;
+}
 .onboarding-heart {
   font-size: 68px;
   margin-bottom: 16px;
