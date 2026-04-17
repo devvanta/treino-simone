@@ -84,7 +84,7 @@ h1, h2, h3, h4 {
 .onboarding-container {
   width: 100%;
   max-width: 420px;
-  padding: 40px 28px;
+  padding: 40px 28px calc(40px + var(--safe-bottom));
   text-align: center;
   color: #FFFFFF;
   animation: slideUp 0.5s ease;
