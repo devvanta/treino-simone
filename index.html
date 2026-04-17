@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Treino Simone">
-  <meta name="theme-color" content="#E88D67">
+  <meta name="theme-color" content="#667EEA">
   <meta name="description" content="App de treino personalizado para Simone Trombini">
 
   <title>Treino da Simone</title>
@@ -20,145 +20,113 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="icons/icon-192.png">
 
-  <!-- Stylesheet -->
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            heading: ['Inter', 'sans-serif'],
+            body: ['Nunito', 'sans-serif'],
+          },
+          colors: {
+            bg: '#F7F8FC',
+            card: '#FFFFFF',
+            txt: '#2D3436',
+            'txt-sec': '#636E72',
+          },
+          borderRadius: {
+            '3xl': '24px',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Styles -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="font-body bg-bg text-txt antialiased">
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- INSTALL BANNER -->
-  <!-- ═══════════════════════════════════ -->
-  <div class="install-banner" id="install-banner">
-    <p><strong>📲 Instale o app!</strong><br>Adicione à tela inicial para acessar offline.</p>
-    <button class="btn btn-sm" style="background:#fff; color:var(--primary); font-weight:700;" onclick="installApp()">Instalar</button>
-  </div>
+  <!-- ════════════════════════════════════ -->
+  <!-- TAB CONTENT AREA -->
+  <!-- ════════════════════════════════════ -->
+  <main id="app-main" class="pb-24 min-h-screen">
+    <!-- Tab: Home -->
+    <section id="tab-home" class="tab-panel active px-5 pt-safe">
+      <div id="home-content"></div>
+    </section>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- TAB: HOME -->
-  <!-- ═══════════════════════════════════ -->
-  <div id="tab-home" class="tab-content active">
-    <div class="container" id="home-content">
-      <!-- Rendered by app.js -->
-    </div>
-  </div>
+    <!-- Tab: Treino -->
+    <section id="tab-workout" class="tab-panel px-5 pt-safe">
+      <div id="workout-content"></div>
+    </section>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- TAB: WORKOUT -->
-  <!-- ═══════════════════════════════════ -->
-  <div id="tab-workout" class="tab-content">
-    <div class="container" id="workout-content">
-      <!-- Rendered by app.js -->
-    </div>
-  </div>
+    <!-- Tab: Saude -->
+    <section id="tab-health" class="tab-panel px-5 pt-safe">
+      <div id="health-content"></div>
+    </section>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- TAB: HEALTH -->
-  <!-- ═══════════════════════════════════ -->
-  <div id="tab-health" class="tab-content">
-    <div class="container" id="health-content">
-      <!-- Rendered by app.js -->
-    </div>
-  </div>
+    <!-- Tab: Progresso -->
+    <section id="tab-progress" class="tab-panel px-5 pt-safe">
+      <div id="progress-content"></div>
+    </section>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- TAB: PROGRESS -->
-  <!-- ═══════════════════════════════════ -->
-  <div id="tab-progress" class="tab-content">
-    <div class="container" id="progress-content">
-      <!-- Rendered by app.js -->
-    </div>
-  </div>
+    <!-- Tab: Config -->
+    <section id="tab-settings" class="tab-panel px-5 pt-safe">
+      <div id="settings-content"></div>
+    </section>
+  </main>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- TAB: SETTINGS -->
-  <!-- ═══════════════════════════════════ -->
-  <div id="tab-settings" class="tab-content">
-    <div class="container" id="settings-content">
-      <!-- Rendered by app.js -->
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════ -->
-  <!-- POST-WORKOUT OVERLAY -->
-  <!-- ═══════════════════════════════════ -->
-  <div class="post-workout-overlay" id="post-workout-overlay">
-    <div class="post-workout-card">
-      <div class="congrats-icon">🎉</div>
-      <h2>Parabéns Simone!<br>Treino completo!</h2>
-      <p style="color:var(--text-light); margin-bottom:24px;">Você é incrível! Cada treino conta.</p>
-
-      <!-- Pain Diary -->
-      <div class="pain-section">
-        <h3>Sentiu dor durante o treino?</h3>
-        <p style="font-size:0.85rem; color:var(--text-light); margin-bottom:8px;">Selecione as regiões (se houver):</p>
-        <div class="body-parts">
-          <button class="body-part-btn" onclick="selectBodyPart(this)">🦴 Pescoço</button>
-          <button class="body-part-btn" onclick="selectBodyPart(this)">💪 Ombro</button>
-          <button class="body-part-btn" onclick="selectBodyPart(this)">🦵 Joelho Dir.</button>
-          <button class="body-part-btn" onclick="selectBodyPart(this)">🔙 Lombar</button>
-          <button class="body-part-btn" onclick="selectBodyPart(this)">📍 Outro</button>
-        </div>
-
-        <h3>Nível da dor</h3>
-        <div class="pain-level">
-          <button class="pain-level-btn" onclick="selectPainLevel(this, 1)">1</button>
-          <button class="pain-level-btn" onclick="selectPainLevel(this, 2)">2</button>
-          <button class="pain-level-btn" onclick="selectPainLevel(this, 3)">3</button>
-          <button class="pain-level-btn" onclick="selectPainLevel(this, 4)">4</button>
-          <button class="pain-level-btn" onclick="selectPainLevel(this, 5)">5</button>
-        </div>
-
-        <h3>Como você está se sentindo?</h3>
-        <div class="mood-selector">
-          <button class="mood-btn post-mood-btn" onclick="selectPostMood(this, 'happy')">😊</button>
-          <button class="mood-btn post-mood-btn" onclick="selectPostMood(this, 'neutral')">😐</button>
-          <button class="mood-btn post-mood-btn" onclick="selectPostMood(this, 'sad')">😔</button>
-        </div>
-
-        <div class="input-group">
-          <label>Observações</label>
-          <textarea class="input-field" id="pain-notes" placeholder="Algo que queira anotar..."></textarea>
-        </div>
-
-        <button class="btn btn-primary btn-block" onclick="savePainDiary()" style="margin-top:8px">
-          ✓ Salvar e Fechar
-        </button>
-        <button class="btn btn-outline btn-block" onclick="closePostWorkout()" style="margin-top:8px">
-          Pular
-        </button>
+  <!-- ════════════════════════════════════ -->
+  <!-- CELEBRATION OVERLAY -->
+  <!-- ════════════════════════════════════ -->
+  <div id="celebration-overlay" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+    <div class="relative z-10 flex items-center justify-center min-h-screen p-6">
+      <div id="celebration-card" class="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl transform scale-90 opacity-0 transition-all duration-500">
+        <!-- Filled by JS -->
       </div>
     </div>
+    <div id="confetti-container" class="fixed inset-0 pointer-events-none z-20"></div>
   </div>
 
-  <!-- ═══════════════════════════════════ -->
-  <!-- BOTTOM TAB NAVIGATION -->
-  <!-- ═══════════════════════════════════ -->
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="home">
-      <span class="tab-icon">🏠</span>
-      <span>Início</span>
-    </button>
-    <button class="tab-btn" data-tab="workout">
-      <span class="tab-icon">🏋️</span>
-      <span>Treino</span>
-    </button>
-    <button class="tab-btn" data-tab="health">
-      <span class="tab-icon">❤️</span>
-      <span>Saúde</span>
-    </button>
-    <button class="tab-btn" data-tab="progress">
-      <span class="tab-icon">📊</span>
-      <span>Progresso</span>
-    </button>
-    <button class="tab-btn" data-tab="settings">
-      <span class="tab-icon">⚙️</span>
-      <span>Config</span>
-    </button>
+  <!-- ════════════════════════════════════ -->
+  <!-- BOTTOM TAB BAR -->
+  <!-- ════════════════════════════════════ -->
+  <nav id="tab-bar" class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg shadow-[0_-4px_24px_rgba(0,0,0,0.06)] pb-safe">
+    <div class="flex justify-around items-center h-16 max-w-lg mx-auto">
+      <button class="tab-btn active" data-tab="home">
+        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
+        <span class="text-[10px] font-semibold">Inicio</span>
+      </button>
+      <button class="tab-btn" data-tab="workout">
+        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h4v12H4zM16 6h4v12h-4zM8 10h8v4H8z"/></svg>
+        <span class="text-[10px] font-semibold">Treino</span>
+      </button>
+      <button class="tab-btn" data-tab="health">
+        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        <span class="text-[10px] font-semibold">Saude</span>
+      </button>
+      <button class="tab-btn" data-tab="progress">
+        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
+        <span class="text-[10px] font-semibold">Progresso</span>
+      </button>
+      <button class="tab-btn" data-tab="settings">
+        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span class="text-[10px] font-semibold">Config</span>
+      </button>
+    </div>
   </nav>
 
   <!-- Scripts -->
   <script src="exercises.js"></script>
   <script src="app.js"></script>
-
 </body>
 </html>

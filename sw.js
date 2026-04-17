@@ -1,4 +1,4 @@
-const CACHE_NAME = 'treino-simone-v1';
+const CACHE_NAME = 'treino-simone-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,7 @@ const ASSETS = [
   './manifest.json'
 ];
 
-// Install — cache all assets
+// Install
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
@@ -28,18 +28,21 @@ self.addEventListener('activate', (e) => {
 
 // Fetch — cache first, network fallback
 self.addEventListener('fetch', (e) => {
+  // Skip non-GET and YouTube/CDN requests
+  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.hostname.includes('youtube') || url.hostname.includes('google') || url.hostname.includes('tailwindcss') || url.hostname.includes('fonts')) return;
+
   e.respondWith(
     caches.match(e.request).then((cached) => {
       return cached || fetch(e.request).then((response) => {
-        // Cache successful GET requests
-        if (e.request.method === 'GET' && response.status === 200) {
+        if (response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
         }
         return response;
       });
     }).catch(() => {
-      // Offline fallback
       if (e.request.destination === 'document') {
         return caches.match('./index.html');
       }
