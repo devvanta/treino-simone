@@ -27,10 +27,43 @@
   <!-- Chart.js for weight chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
+  <!-- Leaflet for walking map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <!-- Custom styles -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- ============ ONBOARDING SCREEN ============ -->
+  <div id="screen-onboarding" class="screen onboarding-screen">
+    <div class="onboarding-container">
+      <div class="onboarding-heart">&#10084;&#65039;</div>
+      <h1 class="onboarding-title">Voce recebeu um presente!</h1>
+      <img src="photos/simone_biceps.jpg" alt="Simone" class="onboarding-hero-photo">
+      <p class="onboarding-subtitle">Dan e Davi fizeram este app especialmente pra voce, Mamusca!</p>
+
+      <div class="onboarding-audio-card">
+        <div class="onboarding-audio-row">
+          <span class="onboarding-who">Dan</span>
+          <button class="onboarding-play-btn" id="btn-play-dan-welcome" onclick="App.playOnboardingAudio('dan')">
+            &#9654;&#65039;
+          </button>
+          <audio id="audio-dan-welcome" src="audio/dan_welcome.ogg" preload="auto"></audio>
+        </div>
+        <div class="onboarding-audio-row">
+          <span class="onboarding-who">Davi</span>
+          <button class="onboarding-play-btn" id="btn-play-davi-welcome" onclick="App.playOnboardingAudio('davi')">
+            &#9654;&#65039;
+          </button>
+          <audio id="audio-davi-welcome" src="audio/davi_welcome.ogg" preload="auto"></audio>
+        </div>
+      </div>
+
+      <button class="onboarding-start-btn" onclick="App.finishOnboarding()">Comecar</button>
+    </div>
+  </div>
 
   <!-- ============ HOME SCREEN ============ -->
   <div id="screen-home" class="screen active">
@@ -42,6 +75,18 @@
       </div>
       <img src="profile.jpg" alt="Simone" class="profile-photo">
     </div>
+
+    <!-- Artrose banner (fixo) -->
+    <div class="artrose-banner">
+      <span class="ab-icon">🦴</span>
+      <div class="ab-text">
+        <strong>Treino adaptado</strong>
+        <span>Pra artrose na cervical e joelho direito</span>
+      </div>
+    </div>
+
+    <!-- Treino de hoje (destaque principal) -->
+    <div id="today-workout-card"></div>
 
     <!-- Stats grid -->
     <div class="stats-grid">
@@ -68,9 +113,28 @@
       </div>
     </div>
 
+    <!-- Card de dicas de dor (aparece se registrou dor recente) -->
+    <div id="home-pain-tip"></div>
+
     <!-- Discover workouts -->
-    <h2 class="section-title">Descubra seus treinos</h2>
+    <div class="section-heading">
+      <h2 class="section-title">Descubra seus treinos</h2>
+      <p class="section-sub">Toque num treino pra abrir os exercicios do dia.</p>
+    </div>
     <div class="workout-scroll" id="workout-scroll"></div>
+
+    <!-- Walking card (com explicacao) -->
+    <div class="walking-card-wrapper">
+      <button class="walking-card" onclick="App.switchTab('walking')">
+        <div class="wc-icon-big">&#128694;&#8205;&#9792;&#65039;</div>
+        <div class="wc-body">
+          <div class="wc-kicker">Fora do treino</div>
+          <div class="wc-title">Registrar Caminhada</div>
+          <div class="wc-desc">O app usa o GPS do celular para medir seu trajeto, distancia, tempo, ritmo e ate quanto voce subiu. Otimo pra complementar o treino!</div>
+          <div class="wc-cta">Comecar agora &#8250;</div>
+        </div>
+      </button>
+    </div>
 
     <!-- Motivation banner -->
     <div class="motivation-banner" id="motivation-banner">
@@ -79,6 +143,47 @@
         <strong>Continue assim!</strong>
         <span>Voce e mais dedicada que 88% das usuarias.</span>
       </div>
+      <button class="mb-play-btn" id="mb-play-btn" onclick="App.playMotivationalAudio()">&#9654;&#65039;</button>
+    </div>
+
+    <!-- Atalhos do app -->
+    <div class="home-section-title">
+      <h2>Navegar pelo app</h2>
+    </div>
+    <div class="home-shortcuts">
+      <button class="hs-card hs-health" onclick="App.switchTab('health')">
+        <div class="hs-icon">❤️</div>
+        <div class="hs-label">Saude</div>
+        <div class="hs-desc">Sono, peso, dor, humor</div>
+      </button>
+      <button class="hs-card hs-progress" onclick="App.switchTab('progress')">
+        <div class="hs-icon">📊</div>
+        <div class="hs-label">Progresso</div>
+        <div class="hs-desc">Calendario e medalhas</div>
+      </button>
+      <button class="hs-card hs-walking" onclick="App.switchTab('walking')">
+        <div class="hs-icon">🚶‍♀️</div>
+        <div class="hs-label">Caminhada</div>
+        <div class="hs-desc">GPS + historico</div>
+      </button>
+      <button class="hs-card hs-settings" onclick="App.switchTab('settings')">
+        <div class="hs-icon">⚙️</div>
+        <div class="hs-label">Ajustes</div>
+        <div class="hs-desc">Lembrete e dados</div>
+      </button>
+    </div>
+
+    <!-- Galeria preview -->
+    <div class="home-section-title">
+      <h2>Voce pode!</h2>
+      <button class="home-section-link" onclick="App.switchTab('progress')">Ver tudo &#8250;</button>
+    </div>
+    <div class="home-gallery-scroll">
+      <img src="photos/simone_biceps.jpg" alt="" loading="lazy" onclick="App.switchTab('progress')">
+      <img src="photos/simone_halteres_teal.jpg" alt="" loading="lazy" onclick="App.switchTab('progress')">
+      <img src="photos/simone_pose_roxo.jpg" alt="" loading="lazy" onclick="App.switchTab('progress')">
+      <img src="photos/simone_mat_halteres.jpg" alt="" loading="lazy" onclick="App.switchTab('progress')">
+      <img src="photos/simone_parede.jpg" alt="" loading="lazy" onclick="App.switchTab('progress')">
     </div>
   </div>
 
@@ -87,6 +192,7 @@
     <div class="workouts-tab-header">
       <h1>Treinos</h1>
       <p>Sua semana de treinos</p>
+      <div class="tab-helper">💡 Cada dia tem um foco diferente. Toque em um treino pra ver os exercicios, videos e dicas.</div>
     </div>
     <div class="workouts-tab-grid" id="workouts-tab-grid"></div>
     <div id="rest-day-container"></div>
@@ -108,11 +214,13 @@
     <div class="health-header">
       <h1>Saude</h1>
       <p>Acompanhe seu bem-estar</p>
+      <div class="tab-helper">💡 Registrar estes dados todo dia ajuda voce e seu medico a ver o que esta funcionando.</div>
     </div>
     <div class="health-content">
       <!-- Sleep -->
       <div class="health-section">
         <h3>😴 Sono</h3>
+        <p class="health-hint">O sono e quando o corpo se recupera. Anote quantas horas dormiu e a qualidade.</p>
         <div class="health-input-group">
           <div class="health-input-row">
             <label>Horas</label>
@@ -135,6 +243,7 @@
       <!-- Weight -->
       <div class="health-section">
         <h3>⚖️ Peso</h3>
+        <p class="health-hint">Pese-se sempre no mesmo horario (de preferencia cedo). Pequenas variacoes sao normais.</p>
         <div class="health-input-group">
           <div class="health-input-row">
             <label>Peso</label>
@@ -150,6 +259,7 @@
       <!-- Steps -->
       <div class="health-section">
         <h3>🚶 Passos</h3>
+        <p class="health-hint">Meta sugerida pra sua idade: 3.000 a 5.000 passos por dia. Cada passo conta!</p>
         <div class="health-input-group">
           <div class="health-input-row">
             <label>Passos</label>
@@ -161,14 +271,27 @@
       <!-- Pain diary -->
       <div class="health-section">
         <h3>📝 Diario de Dor</h3>
-        <div class="pain-diary">
-          <textarea id="health-pain" placeholder="Como esta a dor hoje? Cervical, joelho..."></textarea>
+        <p class="health-hint">Escolha a regiao e o app mostra dicas especificas. Registrar todo dia ajuda a ver padroes de melhora.</p>
+        <div class="pain-region-selector">
+          <label class="pain-region-label">Regiao com dor:</label>
+          <div class="pain-region-buttons" id="pain-region-buttons">
+            <button class="pain-region-btn" data-region="cervical" onclick="App.togglePainRegion('cervical')">Cervical</button>
+            <button class="pain-region-btn" data-region="joelho_direito" onclick="App.togglePainRegion('joelho_direito')">Joelho Dir.</button>
+            <button class="pain-region-btn" data-region="lombar" onclick="App.togglePainRegion('lombar')">Lombar</button>
+            <button class="pain-region-btn" data-region="ombro" onclick="App.togglePainRegion('ombro')">Ombro</button>
+            <button class="pain-region-btn" data-region="geral" onclick="App.togglePainRegion('geral')">Outro</button>
+          </div>
         </div>
+        <div class="pain-diary">
+          <textarea id="health-pain" placeholder="Detalhes sobre a dor (opcional)..."></textarea>
+        </div>
+        <div id="pain-tips-container"></div>
       </div>
 
       <!-- Mood -->
       <div class="health-section">
         <h3>🎭 Humor</h3>
+        <p class="health-hint">Como voce se sente hoje? O humor tambem e parte da saude — nao precisa forcar sorriso.</p>
         <div class="mood-selector" id="mood-selector">
           <button class="mood-btn" data-mood="otimo" onclick="App.selectMood('otimo')">😄</button>
           <button class="mood-btn" data-mood="bom" onclick="App.selectMood('bom')">🙂</button>
@@ -187,6 +310,7 @@
     <div class="progress-header">
       <h1>Progresso</h1>
       <p>Sua evolucao ao longo do tempo</p>
+      <div class="tab-helper">💡 Os dias roxos sao os que voce treinou. Complete metas pra ganhar medalhas!</div>
     </div>
     <div class="progress-content">
       <div class="calendar-header">
@@ -203,6 +327,76 @@
       <div class="medals-section">
         <h3>Medalhas</h3>
         <div class="medals-grid" id="medals-grid"></div>
+      </div>
+
+      <div class="inspiration-section">
+        <h3>Voce pode!</h3>
+        <p class="inspiration-sub">Olha a forca que voce ja tem, Mamusca.</p>
+        <div class="inspiration-gallery">
+          <img src="photos/simone_halteres_teal.jpg" alt="Simone halteres" loading="lazy">
+          <img src="photos/simone_biceps.jpg" alt="Simone biceps" loading="lazy">
+          <img src="photos/simone_pose_roxo.jpg" alt="Simone pose" loading="lazy">
+          <img src="photos/simone_parede.jpg" alt="Simone parede" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ WALKING SCREEN ============ -->
+  <div id="screen-walking" class="screen">
+    <div class="walking-header">
+      <h1>Caminhada</h1>
+      <p>Rastreie suas caminhadas com GPS</p>
+      <div class="tab-helper">💡 Quando voce tocar em "Iniciar", o celular vai pedir permissao pra usar o GPS. Aceite pra o app medir seu trajeto.</div>
+    </div>
+    <div class="walking-content">
+      <!-- Live stats -->
+      <div class="walking-live-stats" id="walking-live-stats" style="display:none">
+        <div class="wls-row">
+          <div class="wls-stat">
+            <div class="wls-number" id="walk-time">00:00</div>
+            <div class="wls-label">Tempo</div>
+          </div>
+          <div class="wls-stat">
+            <div class="wls-number" id="walk-distance">0.00</div>
+            <div class="wls-label">km</div>
+          </div>
+          <div class="wls-stat">
+            <div class="wls-number" id="walk-pace">--</div>
+            <div class="wls-label">min/km</div>
+          </div>
+        </div>
+        <div class="wls-row wls-row-sec">
+          <div class="wls-stat">
+            <div class="wls-number" id="walk-speed">0.0</div>
+            <div class="wls-label">km/h</div>
+          </div>
+          <div class="wls-stat">
+            <div class="wls-number" id="walk-elevation">0</div>
+            <div class="wls-label">m ganho</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map container -->
+      <div id="walk-map" style="height:250px;border-radius:16px;margin-bottom:16px;display:none;"></div>
+
+      <!-- Walk summary -->
+      <div id="walk-summary" style="display:none"></div>
+
+      <!-- Controls -->
+      <div class="walking-controls" id="walking-controls">
+        <button class="btn-walk-start" id="btn-walk-start" onclick="App.startWalk()">Iniciar Caminhada</button>
+        <div class="walk-running-btns" id="walk-running-btns" style="display:none">
+          <button class="btn-walk-pause" id="btn-walk-pause" onclick="App.pauseWalk()">Pausar</button>
+          <button class="btn-walk-stop" onclick="App.stopWalk()">Encerrar</button>
+        </div>
+      </div>
+
+      <!-- Walk history -->
+      <div class="walk-history">
+        <h3>Historico</h3>
+        <div id="walk-history-list"></div>
       </div>
     </div>
   </div>
@@ -226,6 +420,7 @@
       <!-- Reminders -->
       <div class="settings-group">
         <h3>Lembretes</h3>
+        <p class="settings-hint">Receba uma notificacao todo dia no horario escolhido lembrando de treinar.</p>
         <div class="settings-item">
           <div class="si-left">
             <span class="si-icon">🔔</span>
@@ -262,6 +457,27 @@
           </div>
           <span class="si-right" style="font-size:13px;color:var(--text-grey)">2.0.0</span>
         </div>
+      </div>
+
+      <!-- Export / Import -->
+      <div class="settings-group">
+        <h3>Dados</h3>
+        <p class="settings-hint">Exportar cria um arquivo com todo seu historico. Importar traz os dados de volta se voce trocar de celular.</p>
+        <div class="settings-item" onclick="App.exportData()">
+          <div class="si-left">
+            <span class="si-icon">📤</span>
+            <span class="si-label">Exportar Dados</span>
+          </div>
+          <span class="si-right">&#8250;</span>
+        </div>
+        <div class="settings-item" onclick="document.getElementById('import-file-input').click()">
+          <div class="si-left">
+            <span class="si-icon">📥</span>
+            <span class="si-label">Importar Dados</span>
+          </div>
+          <span class="si-right">&#8250;</span>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="App.importData(event)">
       </div>
 
       <!-- Reset -->

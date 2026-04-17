@@ -50,7 +50,7 @@ body {
   color: var(--text);
   min-height: 100dvh;
   overflow-x: hidden;
-  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 16px);
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 32px);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -66,6 +66,123 @@ h1, h2, h3, h4 {
 }
 .screen.active {
   display: block;
+}
+
+/* ---- Onboarding (primeira abertura) ---- */
+.onboarding-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, #6358E1 0%, #7B72E8 60%, #9E95F2 100%);
+  z-index: 1000;
+  overflow-y: auto;
+}
+.onboarding-screen.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.onboarding-container {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 28px;
+  text-align: center;
+  color: #FFFFFF;
+  animation: slideUp 0.5s ease;
+}
+.onboarding-heart {
+  font-size: 68px;
+  margin-bottom: 16px;
+  animation: heartBeat 1.5s ease-in-out infinite;
+}
+.onboarding-hero-photo {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 5px solid rgba(255,255,255,0.35);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.28);
+  margin: 8px auto 20px;
+  display: block;
+}
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  50% { transform: scale(1); }
+  70% { transform: scale(1.1); }
+}
+.onboarding-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+.onboarding-subtitle {
+  font-size: 16px;
+  line-height: 1.5;
+  opacity: 0.92;
+  margin-bottom: 32px;
+  font-weight: 500;
+}
+.onboarding-audio-card {
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 32px;
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.onboarding-audio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 4px;
+}
+.onboarding-audio-row + .onboarding-audio-row {
+  border-top: 1px solid rgba(255,255,255,0.18);
+}
+.onboarding-who {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+.onboarding-play-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: #FFFFFF;
+  color: var(--primary);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  transition: transform 0.15s;
+}
+.onboarding-play-btn:active {
+  transform: scale(0.92);
+}
+.onboarding-start-btn {
+  width: 100%;
+  padding: 18px;
+  border: none;
+  border-radius: 16px;
+  background: #FFFFFF;
+  color: var(--primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  transition: transform 0.15s;
+}
+.onboarding-start-btn:active {
+  transform: scale(0.97);
 }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -83,15 +200,20 @@ h1, h2, h3, h4 {
   left: 0;
   right: 0;
   height: calc(var(--nav-height) + var(--safe-bottom));
-  background: var(--card);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
   padding-top: 10px;
   padding-bottom: var(--safe-bottom);
-  border-top: 1px solid #F0F0F0;
-  z-index: 100;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.04);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bottom-nav { background: #FFFFFF; }
 }
 .nav-item {
   display: flex;
@@ -140,6 +262,38 @@ h1, h2, h3, h4 {
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #F0F0F5;
+}
+
+/* Artrose banner (fixo na Home) */
+.artrose-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 20px 0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #FFF5E6 0%, #FFEED6 100%);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.artrose-banner .ab-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.artrose-banner .ab-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.artrose-banner .ab-text strong {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 700;
+}
+.artrose-banner .ab-text span {
+  font-size: 12px;
+  color: var(--text-grey);
+  margin-top: 2px;
 }
 
 /* Stats grid — 2 cols, left card spans 2 rows */
@@ -1234,11 +1388,16 @@ h1, h2, h3, h4 {
   transform: translateX(-50%) translateY(0);
 }
 
-/* ============ RESPONSIVE ============ */
+/* ============ RESPONSIVE ============
+   Target principal: iPhone 16 Pro (393 x 852 CSS points)
+   Funciona responsivo em qualquer tela mobile.
+   Em desktop (>= 500px) centraliza com max-width.
+*/
 @media (min-width: 500px) {
   body {
     max-width: 430px;
     margin: 0 auto;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
   }
   .bottom-nav {
     max-width: 430px;
@@ -1250,4 +1409,714 @@ h1, h2, h3, h4 {
     left: 50%;
     transform: translateX(-50%);
   }
+}
+
+/* iPhone SE e telas pequenas (< 380px) — reduz espacamentos */
+@media (max-width: 379px) {
+  .tc-title { font-size: 20px; }
+  .tc-icon { font-size: 38px; }
+  .wc-title { font-size: 18px; }
+  .stats-grid { padding: 16px; gap: 10px; }
+  .home-shortcuts { padding: 0 16px; }
+  .home-gallery-scroll img { width: 120px; height: 160px; }
+}
+
+/* ============================================
+   Home — Dashboard (treino de hoje, dor, atalhos, galeria)
+   ============================================ */
+
+/* Treino de hoje (destaque principal) */
+#today-workout-card {
+  padding: 16px 20px 0;
+}
+.today-card {
+  width: 100%;
+  display: flex;
+  gap: 14px;
+  padding: 20px;
+  background: linear-gradient(135deg, #6358E1 0%, #8A7FF0 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(99, 88, 225, 0.32);
+  transition: transform 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.today-card::after {
+  content: "";
+  position: absolute;
+  bottom: -30px;
+  right: -30px;
+  width: 140px;
+  height: 140px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+.today-card:active { transform: scale(0.98); }
+.today-rest {
+  background: linear-gradient(135deg, #8F98A3 0%, #B6BDC6 100%);
+  box-shadow: var(--shadow-md);
+}
+.tc-icon {
+  font-size: 44px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+  position: relative;
+  z-index: 1;
+}
+.tc-body { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.tc-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.85;
+  margin-bottom: 3px;
+}
+.tc-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+.tc-desc {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 10px;
+}
+.tc-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.tc-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.tc-progress-fill {
+  height: 100%;
+  background: #FFFFFF;
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+.tc-progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.95;
+}
+.tc-cta {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.22);
+  padding: 7px 14px;
+  border-radius: 999px;
+}
+
+/* Card de dor na Home */
+#home-pain-tip {
+  padding: 16px 20px 0;
+}
+.pain-home-card {
+  width: 100%;
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #FFF5E6 0%, #FFEED6 100%);
+  border: none;
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+.pain-home-card:active { transform: scale(0.99); }
+.phc-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.phc-body { flex: 1; min-width: 0; }
+.phc-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--warning);
+  margin-bottom: 4px;
+}
+.phc-tip {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.phc-cta {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Titulos de secao da Home */
+.home-section-title {
+  padding: 24px 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home-section-title h2 {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+.home-section-link {
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Atalhos do app (grid 2x2) */
+.home-shortcuts {
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.hs-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 18px;
+  border: none;
+  border-radius: var(--radius);
+  text-align: left;
+  cursor: pointer;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+.hs-card:active { transform: scale(0.97); }
+.hs-icon { font-size: 28px; margin-bottom: 4px; }
+.hs-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.hs-desc {
+  font-size: 12px;
+  color: var(--text-grey);
+  font-weight: 600;
+}
+.hs-health { border-top: 3px solid #F25252; }
+.hs-progress { border-top: 3px solid var(--primary); }
+.hs-walking { border-top: 3px solid var(--arms); }
+.hs-settings { border-top: 3px solid var(--cardio); }
+
+/* Galeria scroll horizontal na Home */
+.home-gallery-scroll {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.home-gallery-scroll::-webkit-scrollbar { display: none; }
+.home-gallery-scroll img {
+  width: 140px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  transition: transform 0.15s;
+}
+.home-gallery-scroll img:active { transform: scale(0.97); }
+
+/* ============================================
+   Inspiration gallery (Progresso)
+   ============================================ */
+.inspiration-section {
+  margin-top: 32px;
+  padding: 0 4px;
+}
+.inspiration-section h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.inspiration-sub {
+  font-size: 14px;
+  color: var(--text-grey);
+  margin-bottom: 14px;
+}
+.inspiration-gallery {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.inspiration-gallery img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.2s;
+}
+.inspiration-gallery img:active {
+  transform: scale(0.97);
+}
+
+/* ============================================
+   Microcopy educativo (guia pra Simone)
+   ============================================ */
+.section-heading {
+  padding: 0 20px;
+}
+.section-heading .section-title {
+  padding: 0;
+}
+.section-sub {
+  font-size: 13px;
+  color: var(--text-grey);
+  line-height: 1.4;
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+.tab-helper {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #EFF4FF;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #4A5568;
+  line-height: 1.45;
+}
+.health-hint,
+.settings-hint {
+  font-size: 13px;
+  color: var(--text-grey);
+  line-height: 1.45;
+  margin-top: -4px;
+  margin-bottom: 12px;
+}
+
+/* ============================================
+   Features novas 17/04 — CSS que faltava
+   ============================================ */
+
+/* ---- Card caminhada na Home (grande + explica) ---- */
+.walking-card-wrapper {
+  padding: 0 20px;
+  margin-top: 8px;
+}
+.walking-card {
+  width: 100%;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--arms) 0%, var(--arms-dark) 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(92, 155, 164, 0.28);
+  transition: transform 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.walking-card::after {
+  content: "";
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.walking-card:active {
+  transform: scale(0.98);
+}
+.wc-icon-big {
+  font-size: 48px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+  position: relative;
+  z-index: 1;
+}
+.wc-body {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+.wc-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+.wc-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+.wc-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.95;
+  margin-bottom: 10px;
+}
+.wc-cta {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.22);
+  padding: 6px 12px;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ---- Botão play no motivation-banner ---- */
+.mb-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+.mb-play-btn:active {
+  transform: scale(0.92);
+}
+
+/* ---- Pain region selector (diário de dor) ---- */
+.pain-region-selector {
+  margin-bottom: 12px;
+}
+.pain-region-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-grey);
+  margin-bottom: 8px;
+}
+.pain-region-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pain-region-btn {
+  padding: 8px 14px;
+  background: var(--field-bg);
+  color: var(--text-grey);
+  border: 1.5px solid #E8EBF0;
+  border-radius: 999px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pain-region-btn.active {
+  background: var(--primary);
+  color: #FFFFFF;
+  border-color: var(--primary);
+}
+.pain-region-btn:active {
+  transform: scale(0.96);
+}
+.pain-tips-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #EFF4FF 0%, #F8FAFF 100%);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.pain-tips-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pain-tips-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pain-tips-card li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  padding: 6px 0;
+  padding-left: 20px;
+  position: relative;
+}
+.pain-tips-card li::before {
+  content: "💡";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  font-size: 12px;
+}
+
+/* ---- Walking / GPS screen ---- */
+.walking-header {
+  padding: 24px 20px 8px;
+}
+.walking-header h1 {
+  font-family: 'Inter', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.walking-header p {
+  font-size: 14px;
+  color: var(--text-grey);
+  margin-top: 4px;
+}
+.walking-content {
+  padding: 16px 20px 100px;
+}
+.walking-live-stats {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+}
+.wls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.wls-row-sec {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #F0F0F5;
+}
+.wls-row-sec .wls-number {
+  font-size: 20px;
+  color: var(--arms);
+}
+.wls-stat {
+  text-align: center;
+}
+.wls-number {
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.1;
+}
+.wls-label {
+  font-size: 11px;
+  color: var(--text-grey);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.walking-controls {
+  margin-bottom: 24px;
+}
+.btn-walk-start {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.15s;
+}
+.btn-walk-start:active {
+  transform: scale(0.97);
+}
+.walk-running-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.btn-walk-pause {
+  padding: 16px;
+  background: var(--warning);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.btn-walk-stop {
+  padding: 16px;
+  background: var(--error);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.btn-walk-pause:active,
+.btn-walk-stop:active {
+  transform: scale(0.97);
+}
+
+/* Walk summary (resumo pós-caminhada) */
+.walk-summary-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+  border-top: 4px solid var(--success);
+}
+.walk-summary-card h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.ws-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.ws-stat {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-num {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.ws-unit {
+  font-size: 11px;
+  color: var(--text-grey);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+/* Walk history */
+.walk-history {
+  margin-top: 8px;
+}
+.walk-history h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.walk-empty {
+  text-align: center;
+  color: var(--text-grey);
+  font-size: 14px;
+  padding: 24px 16px;
+  background: var(--field-bg);
+  border-radius: var(--radius);
+}
+.walk-history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.walk-history-item:active {
+  transform: scale(0.98);
+}
+.whi-icon {
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  background: #EFF4FF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.whi-info {
+  flex: 1;
+  min-width: 0;
+}
+.whi-date {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.whi-meta {
+  font-size: 13px;
+  color: var(--text-grey);
+  margin-top: 2px;
+}
+.whi-chevron {
+  color: var(--grey);
+  font-size: 18px;
+  flex-shrink: 0;
 }

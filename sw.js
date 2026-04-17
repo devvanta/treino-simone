@@ -1,4 +1,4 @@
-const CACHE_NAME = 'treino-simone-v3';
+const CACHE_NAME = 'treino-simone-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -46,6 +46,19 @@ self.addEventListener('fetch', (e) => {
       if (e.request.destination === 'document') {
         return caches.match('./index.html');
       }
+    })
+  );
+});
+
+// Notification click: foca/abre a PWA
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const c of clients) {
+        if ('focus' in c) return c.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow('./');
     })
   );
 });

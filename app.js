@@ -1,4 +1,4 @@
-// app.js — Treino da Simone v2.0 — perpetio/fitness style PWA
+// app.js — Treino da Simone v3.0 — perpetio/fitness style PWA
 // All state persisted in localStorage
 
 const App = (function() {
@@ -6,8 +6,11 @@ const App = (function() {
 
   // ── Constants ──
   const LS_KEY = 'treino_simone_v2';
+  const LS_ONBOARDING = 'treino_simone_onboarding';
+  const LS_WALKS = 'treino_simone_walks';
   const MONTH_NAMES = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const DAY_NAMES_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
+  const SP_TZ = 'America/Sao_Paulo';
 
   // Workout card colors cycle
   const CARD_COLORS = ['orange','teal','purple','green','orange','teal'];
@@ -42,15 +45,35 @@ const App = (function() {
   let calendarYear = new Date().getFullYear();
   let weightChart = null;
   let selectedMood = '';
+  let selectedPainRegions = [];
+
+  // Real time tracking
+  let workoutStartTime = null;
+
+  // Walking state
+  let walkActive = false;
+  let walkPaused = false;
+  let walkStartTime = null;
+  let walkPausedDuration = 0;
+  let walkPauseStart = null;
+  let walkWatchId = null;
+  let walkPoints = [];
+  let walkTotalDistance = 0;
+  let walkTotalElevationGain = 0;
+  let walkLastAltitude = null;
+  let walkCurrentSpeed = 0;
+  let walkTimerInterval = null;
+  let walkMap = null;
 
   // ── State management ──
   function getDefaultState() {
     return {
-      completedExercises: {},   // { 'd1e1': { date, weight } }
+      completedExercises: {},   // { 'd1e1': { date, weight, endTime } }
       completedDays: {},        // { '2026-04-15': [1,3] } — day IDs done that date
-      healthLog: {},            // { '2026-04-15': { sleep, quality, weight, steps, pain, mood } }
+      healthLog: {},            // { '2026-04-15': { sleep, quality, weight, steps, pain, painRegions, mood } }
       settings: { reminder: false, reminderTime: '08:00' },
       totalMinutes: 0,
+      workoutSessions: {},      // { '2026-04-15-d1': { startTime, endTime, durationMin } }
     };
   }
 
@@ -74,6 +97,13 @@ const App = (function() {
     return new Date().toISOString().slice(0, 10);
   }
 
+  function formatTimeSP(ts) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit', minute: '2-digit',
+      timeZone: SP_TZ
+    }).format(new Date(ts));
+  }
+
   function getTotalCompleted() {
     const doneDays = new Set();
     Object.entries(state.completedDays).forEach(([date, dayIds]) => {
@@ -83,7 +113,6 @@ const App = (function() {
   }
 
   function getInProgressCount() {
-    const todayDate = today();
     let count = 0;
     for (let dayId = 1; dayId <= 6; dayId++) {
       const dayData = EXERCISE_DB[dayId];
@@ -112,11 +141,15 @@ const App = (function() {
         mins += (typeof ex.sets === 'number' ? ex.sets : 3) * 0.75;
       }
     });
-    return Math.round(mins + 2); // +2 for rest
+    return Math.round(mins + 2);
   }
 
-  function getRandomQuote() {
-    return MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+  function getDailyQuote() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
   }
 
   // ── Toast ──
@@ -175,6 +208,88 @@ const App = (function() {
   }
 
   // ══════════════════════════════════════
+  //  ONBOARDING
+  // ══════════════════════════════════════
+  function checkOnboarding() {
+    const done = localStorage.getItem(LS_ONBOARDING);
+    if (!done) {
+      // Show onboarding
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-onboarding').classList.add('active');
+      document.querySelector('.bottom-nav').style.display = 'none';
+      return true;
+    }
+    return false;
+  }
+
+  function playOnboardingAudio(who) {
+    playFromLibrary('welcome', who);
+  }
+
+  function finishOnboarding() {
+    localStorage.setItem(LS_ONBOARDING, 'true');
+    document.querySelector('.bottom-nav').style.display = '';
+    switchTab('home');
+  }
+
+  // ══════════════════════════════════════
+  //  VOICE PLAYER (com shuffle + anti-repeticao)
+  // ══════════════════════════════════════
+  const LS_LAST_AUDIO = 'treino_simone_last_audio';
+
+  function getLastPlayedMap() {
+    try { return JSON.parse(localStorage.getItem(LS_LAST_AUDIO) || '{}'); } catch(e) { return {}; }
+  }
+
+  function setLastPlayed(key, src) {
+    const map = getLastPlayedMap();
+    map[key] = src;
+    localStorage.setItem(LS_LAST_AUDIO, JSON.stringify(map));
+  }
+
+  function pickAudioSrc(type, who) {
+    const list = (AUDIO_LIBRARY[type] && AUDIO_LIBRARY[type][who]) || [];
+    if (list.length === 0) return null;
+    if (list.length === 1) return list[0];
+    const key = `${type}_${who}`;
+    const last = getLastPlayedMap()[key];
+    let pool = list.filter(s => s !== last);
+    if (pool.length === 0) pool = list;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    setLastPlayed(key, pick);
+    return pick;
+  }
+
+  function pickDailyWho(type) {
+    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000*60*60*24));
+    return dayOfYear % 2 === 0 ? 'dan' : 'davi';
+  }
+
+  function playFromLibrary(type, who) {
+    const src = pickAudioSrc(type, who);
+    if (!src) return;
+    const el = new Audio(src);
+    el.play().catch(() => {});
+  }
+
+  function playMotivationalAudio() {
+    playFromLibrary('frase', pickDailyWho('frase'));
+  }
+
+  function playPostWorkoutAudio() {
+    playFromLibrary('postreino', pickDailyWho('postreino'));
+  }
+
+  // Auto-play diario: toca 1x por dia quando Simone abre a Home
+  function maybeAutoPlayDaily() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (state.settings.lastDailyAudioDate === today) return;
+    state.settings.lastDailyAudioDate = today;
+    saveState();
+    setTimeout(() => playMotivationalAudio(), 800);
+  }
+
+  // ══════════════════════════════════════
   //  TAB SWITCHING
   // ══════════════════════════════════════
   function switchTab(tab) {
@@ -200,11 +315,12 @@ const App = (function() {
     if (navBtn) navBtn.classList.add('active');
 
     // Render tab content
-    if (tab === 'home') renderHome();
+    if (tab === 'home') { renderHome(); maybeAutoPlayDaily(); }
     else if (tab === 'workouts') renderWorkoutsTab();
     else if (tab === 'health') renderHealth();
     else if (tab === 'progress') renderProgress();
     else if (tab === 'settings') renderSettings();
+    else if (tab === 'walking') renderWalking();
   }
 
   // ══════════════════════════════════════
@@ -218,11 +334,99 @@ const App = (function() {
     document.getElementById('stat-progress').textContent = inProgress;
     document.getElementById('stat-minutes').textContent = state.totalMinutes || 0;
 
+    // Treino de hoje
+    renderTodayWorkoutCard();
+
+    // Card de dor (se tem registro recente)
+    renderHomePainTip();
+
     // Workout scroll cards
     renderWorkoutScroll();
 
     // Motivation
     renderMotivation();
+  }
+
+  function renderTodayWorkoutCard() {
+    const host = document.getElementById('today-workout-card');
+    if (!host) return;
+    const dow = new Date().getDay(); // 0=dom, 1=seg, ... 6=sab
+    if (dow === 0) {
+      host.innerHTML = `
+        <div class="today-card today-rest">
+          <div class="tc-icon">😴</div>
+          <div class="tc-body">
+            <div class="tc-kicker">Hoje · Domingo</div>
+            <div class="tc-title">Dia de Descanso</div>
+            <div class="tc-desc">Descanse, alongue-se, se hidrate. Voce merece.</div>
+          </div>
+        </div>`;
+      return;
+    }
+    const day = EXERCISE_DB[dow];
+    if (!day) { host.innerHTML = ''; return; }
+    const exCount = day.exercises.length;
+    const mins = getEstimatedMinutes(dow);
+    const done = isDayFullyCompleted(dow);
+    const completedCount = day.exercises.filter(ex => state.completedExercises[ex.id]).length;
+    const pct = Math.round((completedCount / exCount) * 100);
+    const ctaText = done ? '✓ Treino completo' : (completedCount > 0 ? 'Continuar' : 'Comecar agora');
+
+    host.innerHTML = `
+      <button class="today-card" onclick="App.openWorkout(${dow})">
+        <div class="tc-icon">${day.icon}</div>
+        <div class="tc-body">
+          <div class="tc-kicker">Hoje · ${day.dayLabel}</div>
+          <div class="tc-title">${day.dayName}</div>
+          <div class="tc-desc">${exCount} exercicios · ${mins} min</div>
+          <div class="tc-progress">
+            <div class="tc-progress-bar"><div class="tc-progress-fill" style="width:${pct}%"></div></div>
+            <span class="tc-progress-label">${completedCount}/${exCount}</span>
+          </div>
+          <div class="tc-cta">${ctaText} &#8250;</div>
+        </div>
+      </button>`;
+  }
+
+  function renderHomePainTip() {
+    const host = document.getElementById('home-pain-tip');
+    if (!host) return;
+
+    // Encontra ultimo registro de dor nos ultimos 7 dias com pain >= 1
+    const entries = Object.entries(state.healthLog)
+      .filter(([d, v]) => v && v.pain >= 1 && v.painRegions && v.painRegions.length > 0)
+      .sort((a, b) => b[0].localeCompare(a[0]));
+
+    if (entries.length === 0) { host.innerHTML = ''; return; }
+
+    const todayMs = Date.now();
+    const [lastDate, lastEntry] = entries[0];
+    const ageDays = Math.floor((todayMs - new Date(lastDate).getTime()) / 86400000);
+    if (ageDays > 7) { host.innerHTML = ''; return; }
+
+    const region = lastEntry.painRegions[0];
+    const tips = (typeof PAIN_TIPS !== 'undefined' && PAIN_TIPS[region]) || [];
+    if (tips.length === 0) { host.innerHTML = ''; return; }
+
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+    const regionLabels = {
+      cervical: 'Cervical',
+      joelho_direito: 'Joelho direito',
+      lombar: 'Lombar',
+      ombro: 'Ombro',
+      geral: 'Geral'
+    };
+    const regionName = regionLabels[region] || region;
+
+    host.innerHTML = `
+      <button class="pain-home-card" onclick="App.switchTab('health')">
+        <div class="phc-icon">💡</div>
+        <div class="phc-body">
+          <div class="phc-kicker">Dica pra sua ${regionName.toLowerCase()}</div>
+          <div class="phc-tip">${tip}</div>
+          <div class="phc-cta">Ver mais dicas &#8250;</div>
+        </div>
+      </button>`;
   }
 
   function renderWorkoutScroll() {
@@ -250,14 +454,13 @@ const App = (function() {
   }
 
   function renderMotivation() {
-    const quote = getRandomQuote();
+    const quote = getDailyQuote();
     const banner = document.getElementById('motivation-banner');
-    banner.innerHTML = `
-      <div class="mb-emoji">🎉</div>
-      <div class="mb-text">
-        <strong>${quote.text}</strong>
-        <span>${quote.author}</span>
-      </div>
+    const playBtn = document.getElementById('mb-play-btn');
+    banner.querySelector('.mb-emoji').textContent = '🎉';
+    banner.querySelector('.mb-text').innerHTML = `
+      <strong>${quote.text}</strong>
+      <span>${quote.author}</span>
     `;
   }
 
@@ -296,7 +499,6 @@ const App = (function() {
 
     container.innerHTML = html;
 
-    // Show Sunday rest card if it's Sunday
     if (new Date().getDay() === 0) {
       restContainer.innerHTML = `
         <div class="rest-day-card">
@@ -316,15 +518,12 @@ const App = (function() {
     const day = EXERCISE_DB[dayId];
     if (!day) return;
 
-    // Hide all screens, show workout detail
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-workout-detail').classList.add('active');
     document.querySelector('.bottom-nav').style.display = 'none';
     window.scrollTo(0, 0);
 
-    const colorClass = CARD_COLORS[dayId - 1];
     const bgColor = CARD_BG_COLORS[dayId - 1];
-    const image = CARD_IMAGES[dayId - 1];
     const exCount = day.exercises.length;
     const mins = getEstimatedMinutes(dayId);
 
@@ -367,14 +566,16 @@ const App = (function() {
       </div>
     `;
 
-    // Show/hide start button
     document.getElementById('btn-start-workout').style.display = '';
   }
 
   function startFirstExercise() {
     const day = EXERCISE_DB[currentDayId];
     if (!day || !day.exercises.length) return;
-    // Find first incomplete exercise
+
+    // Record workout start time
+    workoutStartTime = Date.now();
+
     const next = day.exercises.find(ex => !state.completedExercises[ex.id]) || day.exercises[0];
     openExercise(currentDayId, next.id);
   }
@@ -496,17 +697,18 @@ const App = (function() {
   function completeExercise(exId) {
     const weightInput = document.getElementById('exercise-weight');
     const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
-
     const wasAlreadyDone = !!state.completedExercises[exId];
+    const exerciseEndTime = Date.now();
 
     state.completedExercises[exId] = {
       date: today(),
-      weight: weight
+      weight: weight,
+      endTime: exerciseEndTime
     };
 
     // Track estimated minutes
     if (!wasAlreadyDone && currentExercise) {
-      let addedMins = 2; // rough estimate per exercise
+      let addedMins = 2;
       if (currentExercise.isometric && currentExercise.duration) {
         addedMins = Math.ceil((currentExercise.duration * (currentExercise.sets || 3)) / 60) + 1;
       }
@@ -524,20 +726,38 @@ const App = (function() {
           state.completedDays[d].push(currentDayId);
         }
 
+        // Save workout session time
+        const sessionKey = `${d}-d${currentDayId}`;
+        const startT = workoutStartTime || exerciseEndTime;
+        const durationMin = Math.round((exerciseEndTime - startT) / 60000);
+        state.workoutSessions = state.workoutSessions || {};
+        state.workoutSessions[sessionKey] = {
+          startTime: startT,
+          endTime: exerciseEndTime,
+          durationMin: durationMin
+        };
+
         saveState();
         fireConfetti();
-        showToast('Treino completo! Parabens, Simone! 🎉');
+        playPostWorkoutAudio();
+
+        // Build time summary
+        const startStr = formatTimeSP(startT);
+        const endStr = formatTimeSP(exerciseEndTime);
+        const realMins = durationMin > 0 ? durationMin : 1;
+        showToast(`Treino completo! ${realMins} min (${startStr} — ${endStr}) 🎉`);
+
+        workoutStartTime = null;
 
         setTimeout(() => {
           backToWorkout();
-        }, 1500);
+        }, 2500);
         return;
       }
     }
 
     saveState();
 
-    // Update button
     const btn = document.getElementById('btn-complete-exercise');
     if (btn) {
       btn.classList.add('completed');
@@ -546,7 +766,7 @@ const App = (function() {
 
     showToast('Exercicio concluido! ✓');
 
-    // Auto-advance to next exercise after a moment
+    // Auto-advance to next exercise
     if (currentDayId) {
       const day = EXERCISE_DB[currentDayId];
       if (day) {
@@ -576,7 +796,6 @@ const App = (function() {
           stopTimer();
           btn.textContent = 'Iniciar';
           showToast('Tempo esgotado! ⏱️');
-          // Vibrate if available
           if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         }
       }, 1000);
@@ -604,18 +823,21 @@ const App = (function() {
   }
 
   // ══════════════════════════════════════
-  //  HEALTH SCREEN
+  //  HEALTH SCREEN + PAIN TIPS
   // ══════════════════════════════════════
   function renderHealth() {
     const todayData = state.healthLog[today()] || {};
 
-    // Pre-fill values
     if (todayData.sleep) document.getElementById('health-sleep').value = todayData.sleep;
     if (todayData.quality) document.getElementById('health-sleep-quality').value = todayData.quality;
     if (todayData.weight) document.getElementById('health-weight').value = todayData.weight;
     if (todayData.steps) document.getElementById('health-steps').value = todayData.steps;
     if (todayData.pain) document.getElementById('health-pain').value = todayData.pain;
     if (todayData.mood) selectMood(todayData.mood);
+
+    // Restore pain regions
+    selectedPainRegions = todayData.painRegions || [];
+    updatePainRegionButtons();
 
     renderWeightChart();
   }
@@ -627,6 +849,54 @@ const App = (function() {
     });
   }
 
+  function togglePainRegion(region) {
+    const idx = selectedPainRegions.indexOf(region);
+    if (idx >= 0) {
+      selectedPainRegions.splice(idx, 1);
+    } else {
+      selectedPainRegions.push(region);
+    }
+    updatePainRegionButtons();
+    showPainTips();
+  }
+
+  function updatePainRegionButtons() {
+    document.querySelectorAll('.pain-region-btn').forEach(btn => {
+      btn.classList.toggle('active', selectedPainRegions.includes(btn.dataset.region));
+    });
+  }
+
+  function showPainTips() {
+    const container = document.getElementById('pain-tips-container');
+    if (!container) return;
+
+    if (selectedPainRegions.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let tips = [];
+    selectedPainRegions.forEach(region => {
+      const regionTips = PAIN_TIPS[region] || [];
+      // Pick 2-3 random tips from this region
+      const shuffled = regionTips.sort(() => 0.5 - Math.random());
+      tips.push(...shuffled.slice(0, region === 'geral' ? 2 : 3));
+    });
+
+    // Add 1 from geral if geral not already selected
+    if (!selectedPainRegions.includes('geral') && PAIN_TIPS.geral) {
+      const geralTips = PAIN_TIPS.geral.sort(() => 0.5 - Math.random());
+      tips.push(geralTips[0]);
+    }
+
+    let html = '<div class="pain-tips-card"><h4>💡 Dicas para aliviar a dor</h4><ul>';
+    tips.forEach(tip => {
+      html += `<li>${tip}</li>`;
+    });
+    html += '</ul></div>';
+    container.innerHTML = html;
+  }
+
   function saveHealth() {
     const d = today();
     state.healthLog[d] = {
@@ -635,18 +905,23 @@ const App = (function() {
       weight: parseFloat(document.getElementById('health-weight').value) || null,
       steps: parseInt(document.getElementById('health-steps').value) || null,
       pain: document.getElementById('health-pain').value || null,
+      painRegions: selectedPainRegions.length > 0 ? [...selectedPainRegions] : null,
       mood: selectedMood || null,
     };
     saveState();
     showToast('Registro salvo! ❤️');
     renderWeightChart();
+
+    // Show pain tips if pain regions selected
+    if (selectedPainRegions.length > 0) {
+      showPainTips();
+    }
   }
 
   function renderWeightChart() {
     const ctx = document.getElementById('weight-chart');
     if (!ctx) return;
 
-    // Gather weight data (last 14 entries)
     const entries = Object.entries(state.healthLog)
       .filter(([_, v]) => v.weight)
       .sort((a, b) => a[0].localeCompare(b[0]))
@@ -661,7 +936,6 @@ const App = (function() {
     if (weightChart) weightChart.destroy();
 
     if (data.length === 0) {
-      // Empty state
       ctx.style.display = 'none';
       return;
     }
@@ -720,12 +994,10 @@ const App = (function() {
     const todayDate = today();
 
     let html = '';
-    // Day names
     DAY_NAMES_SHORT.forEach(d => {
       html += `<div class="cal-day-name">${d}</div>`;
     });
 
-    // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
       html += `<div class="cal-day empty"></div>`;
     }
@@ -774,15 +1046,13 @@ const App = (function() {
   function calculateStreak() {
     let streak = 0;
     const d = new Date();
-    // Check if today has a workout (if not Sunday)
     while (true) {
       const dateStr = d.toISOString().slice(0, 10);
       const dayOfWeek = d.getDay();
 
       if (dayOfWeek === 0) {
-        // Sunday counts as rest day in a streak
         d.setDate(d.getDate() - 1);
-        if (streak > 0) continue; // keep counting back
+        if (streak > 0) continue;
         else break;
       }
 
@@ -790,7 +1060,6 @@ const App = (function() {
         streak++;
         d.setDate(d.getDate() - 1);
       } else {
-        // If it's today and no workout yet, check yesterday
         if (streak === 0 && dateStr === today()) {
           d.setDate(d.getDate() - 1);
           continue;
@@ -834,6 +1103,325 @@ const App = (function() {
   }
 
   // ══════════════════════════════════════
+  //  WALKING / GPS TRACKER
+  // ══════════════════════════════════════
+  function loadWalks() {
+    try {
+      const raw = localStorage.getItem(LS_WALKS);
+      return raw ? JSON.parse(raw) : [];
+    } catch(e) { return []; }
+  }
+
+  function saveWalks(walks) {
+    localStorage.setItem(LS_WALKS, JSON.stringify(walks));
+  }
+
+  function renderWalking() {
+    renderWalkHistory();
+    if (!walkActive) {
+      document.getElementById('walking-live-stats').style.display = 'none';
+      document.getElementById('walk-running-btns').style.display = 'none';
+      document.getElementById('btn-walk-start').style.display = '';
+      document.getElementById('walk-map').style.display = 'none';
+      document.getElementById('walk-summary').style.display = 'none';
+    }
+  }
+
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function startWalk() {
+    if (!navigator.geolocation) {
+      showToast('GPS nao disponivel neste dispositivo');
+      return;
+    }
+
+    walkActive = true;
+    walkPaused = false;
+    walkStartTime = Date.now();
+    walkPausedDuration = 0;
+    walkPoints = [];
+    walkTotalDistance = 0;
+    walkTotalElevationGain = 0;
+    walkLastAltitude = null;
+    walkCurrentSpeed = 0;
+
+    document.getElementById('btn-walk-start').style.display = 'none';
+    document.getElementById('walk-running-btns').style.display = 'flex';
+    document.getElementById('walking-live-stats').style.display = '';
+    document.getElementById('walk-summary').style.display = 'none';
+    document.getElementById('walk-map').style.display = 'none';
+
+    const pauseBtn = document.getElementById('btn-walk-pause');
+    pauseBtn.textContent = 'Pausar';
+
+    // Start GPS tracking
+    walkWatchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (walkPaused) return;
+        const pt = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          alt: pos.coords.altitude,
+          timestamp: Date.now()
+        };
+        if (walkPoints.length > 0) {
+          const last = walkPoints[walkPoints.length - 1];
+          const dist = haversineDistance(last.lat, last.lng, pt.lat, pt.lng);
+          // Filter out GPS noise (< 2m jumps are noise)
+          if (dist > 0.002) {
+            walkTotalDistance += dist;
+            walkPoints.push(pt);
+          }
+        } else {
+          walkPoints.push(pt);
+        }
+
+        // Elevation gain (only positive climbs, filter noise < 1m)
+        if (pos.coords.altitude != null) {
+          if (walkLastAltitude != null) {
+            const diff = pos.coords.altitude - walkLastAltitude;
+            if (diff > 1) walkTotalElevationGain += diff;
+          }
+          walkLastAltitude = pos.coords.altitude;
+        }
+
+        // Speed: prefer native speed (m/s → km/h), else derive from last 10s of points
+        if (pos.coords.speed != null && pos.coords.speed >= 0) {
+          walkCurrentSpeed = pos.coords.speed * 3.6;
+        } else if (walkPoints.length >= 2) {
+          const recent = walkPoints.slice(-5);
+          const dt = (recent[recent.length - 1].timestamp - recent[0].timestamp) / 1000;
+          let dd = 0;
+          for (let i = 1; i < recent.length; i++) {
+            dd += haversineDistance(recent[i-1].lat, recent[i-1].lng, recent[i].lat, recent[i].lng);
+          }
+          walkCurrentSpeed = dt > 0 ? (dd / (dt / 3600)) : 0;
+        }
+
+        updateWalkStats();
+      },
+      (err) => {
+        showToast('Erro no GPS: ' + err.message);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+
+    // Timer update
+    walkTimerInterval = setInterval(updateWalkStats, 1000);
+  }
+
+  function updateWalkStats() {
+    if (!walkActive) return;
+
+    const elapsed = walkPaused
+      ? (walkPauseStart - walkStartTime - walkPausedDuration)
+      : (Date.now() - walkStartTime - walkPausedDuration);
+    const totalSec = Math.floor(elapsed / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+
+    document.getElementById('walk-time').textContent =
+      `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+
+    document.getElementById('walk-distance').textContent = walkTotalDistance.toFixed(2);
+
+    // Pace (min/km)
+    if (walkTotalDistance > 0.01 && totalSec > 0) {
+      const paceMinPerKm = (totalSec / 60) / walkTotalDistance;
+      const pm = Math.floor(paceMinPerKm);
+      const ps = Math.round((paceMinPerKm - pm) * 60);
+      document.getElementById('walk-pace').textContent = `${pm}:${String(ps).padStart(2,'0')}`;
+    } else {
+      document.getElementById('walk-pace').textContent = '--';
+    }
+
+    const speedEl = document.getElementById('walk-speed');
+    if (speedEl) speedEl.textContent = walkCurrentSpeed.toFixed(1);
+    const elevEl = document.getElementById('walk-elevation');
+    if (elevEl) elevEl.textContent = Math.round(walkTotalElevationGain);
+  }
+
+  function pauseWalk() {
+    if (!walkActive) return;
+    const pauseBtn = document.getElementById('btn-walk-pause');
+
+    if (walkPaused) {
+      // Resume
+      walkPausedDuration += Date.now() - walkPauseStart;
+      walkPaused = false;
+      walkPauseStart = null;
+      pauseBtn.textContent = 'Pausar';
+    } else {
+      // Pause
+      walkPaused = true;
+      walkPauseStart = Date.now();
+      pauseBtn.textContent = 'Continuar';
+    }
+  }
+
+  function stopWalk() {
+    if (!walkActive) return;
+
+    walkActive = false;
+    if (walkPaused) {
+      walkPausedDuration += Date.now() - walkPauseStart;
+    }
+    walkPaused = false;
+
+    // Stop GPS
+    if (walkWatchId !== null) {
+      navigator.geolocation.clearWatch(walkWatchId);
+      walkWatchId = null;
+    }
+    if (walkTimerInterval) {
+      clearInterval(walkTimerInterval);
+      walkTimerInterval = null;
+    }
+
+    const elapsed = Date.now() - walkStartTime - walkPausedDuration;
+    const totalSec = Math.floor(elapsed / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+
+    // Hide running controls
+    document.getElementById('walk-running-btns').style.display = 'none';
+    document.getElementById('btn-walk-start').style.display = '';
+
+    // Avg speed (km/h) over total time
+    const avgSpeedKmh = totalSec > 0 ? (walkTotalDistance / (totalSec / 3600)) : 0;
+
+    // Save walk
+    const walkData = {
+      date: today(),
+      startTime: walkStartTime,
+      endTime: Date.now(),
+      durationSec: totalSec,
+      distanceKm: walkTotalDistance,
+      avgSpeedKmh: avgSpeedKmh,
+      elevationGainM: Math.round(walkTotalElevationGain),
+      points: walkPoints.length > 500 ? walkPoints.filter((_, i) => i % Math.ceil(walkPoints.length / 500) === 0) : walkPoints,
+    };
+
+    const walks = loadWalks();
+    walks.unshift(walkData);
+    if (walks.length > 10) walks.length = 10;
+    saveWalks(walks);
+
+    // Show summary
+    const paceStr = walkTotalDistance > 0.01
+      ? (() => {
+          const p = (totalSec / 60) / walkTotalDistance;
+          return `${Math.floor(p)}:${String(Math.round((p - Math.floor(p)) * 60)).padStart(2,'0')} min/km`;
+        })()
+      : '--';
+
+    document.getElementById('walk-summary').style.display = '';
+    document.getElementById('walk-summary').innerHTML = `
+      <div class="walk-summary-card">
+        <h3>Caminhada concluida!</h3>
+        <div class="ws-row">
+          <div class="ws-stat"><span class="ws-num">${walkTotalDistance.toFixed(2)}</span><span class="ws-unit">km</span></div>
+          <div class="ws-stat"><span class="ws-num">${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}</span><span class="ws-unit">tempo</span></div>
+          <div class="ws-stat"><span class="ws-num">${paceStr}</span><span class="ws-unit">ritmo</span></div>
+        </div>
+        <div class="ws-row" style="margin-top:12px">
+          <div class="ws-stat"><span class="ws-num">${avgSpeedKmh.toFixed(1)}</span><span class="ws-unit">km/h medio</span></div>
+          <div class="ws-stat"><span class="ws-num">${Math.round(walkTotalElevationGain)}</span><span class="ws-unit">m ganho</span></div>
+        </div>
+      </div>
+    `;
+
+    // Show map if we have points
+    if (walkPoints.length >= 2) {
+      showWalkMap(walkPoints);
+    }
+
+    showToast('Caminhada salva! 🚶‍♀️');
+    renderWalkHistory();
+  }
+
+  function showWalkMap(points) {
+    const mapEl = document.getElementById('walk-map');
+    mapEl.style.display = '';
+
+    if (walkMap) {
+      walkMap.remove();
+      walkMap = null;
+    }
+
+    walkMap = L.map('walk-map').setView([points[0].lat, points[0].lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(walkMap);
+
+    const latlngs = points.map(p => [p.lat, p.lng]);
+    const polyline = L.polyline(latlngs, { color: '#6358E1', weight: 4 }).addTo(walkMap);
+    walkMap.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+
+    // Start/end markers
+    L.circleMarker(latlngs[0], { radius: 8, color: '#66BB6A', fillColor: '#66BB6A', fillOpacity: 1 }).addTo(walkMap);
+    L.circleMarker(latlngs[latlngs.length - 1], { radius: 8, color: '#F25252', fillColor: '#F25252', fillOpacity: 1 }).addTo(walkMap);
+
+    // Force map to re-render
+    setTimeout(() => walkMap.invalidateSize(), 100);
+  }
+
+  function renderWalkHistory() {
+    const listEl = document.getElementById('walk-history-list');
+    if (!listEl) return;
+    const walks = loadWalks();
+
+    if (walks.length === 0) {
+      listEl.innerHTML = '<p class="walk-empty">Nenhuma caminhada registrada ainda.</p>';
+      return;
+    }
+
+    let html = '';
+    walks.forEach((w, idx) => {
+      const mins = Math.floor(w.durationSec / 60);
+      const secs = w.durationSec % 60;
+      const dateParts = w.date.split('-');
+      const dateStr = `${dateParts[2]}/${dateParts[1]}`;
+
+      const speedPart = w.avgSpeedKmh ? ` · ${w.avgSpeedKmh.toFixed(1)} km/h` : '';
+      const elevPart = w.elevationGainM ? ` · ↑${w.elevationGainM}m` : '';
+      html += `
+        <div class="walk-history-item" onclick="App.showWalkOnMap(${idx})">
+          <div class="whi-icon">🚶‍♀️</div>
+          <div class="whi-info">
+            <div class="whi-date">${dateStr}</div>
+            <div class="whi-meta">${w.distanceKm.toFixed(2)} km · ${mins}min${secs > 0 ? secs + 's' : ''}${speedPart}${elevPart}</div>
+          </div>
+          <span class="whi-chevron">&#8250;</span>
+        </div>
+      `;
+    });
+
+    listEl.innerHTML = html;
+  }
+
+  function showWalkOnMap(idx) {
+    const walks = loadWalks();
+    const w = walks[idx];
+    if (!w || !w.points || w.points.length < 2) {
+      showToast('Sem dados de rota para esta caminhada');
+      return;
+    }
+    showWalkMap(w.points);
+    // Scroll to map
+    document.getElementById('walk-map').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ══════════════════════════════════════
   //  SETTINGS SCREEN
   // ══════════════════════════════════════
   function renderSettings() {
@@ -856,15 +1444,66 @@ const App = (function() {
     saveState();
     renderSettings();
 
-    if (state.settings.reminder && 'Notification' in window) {
-      Notification.requestPermission();
+    if (state.settings.reminder) {
+      if ('Notification' in window) {
+        Notification.requestPermission().then((perm) => {
+          if (perm !== 'granted') {
+            showToast('Ative as notificacoes nas configuracoes do navegador');
+          }
+        });
+      } else {
+        showToast('Este navegador nao suporta notificacoes');
+      }
     }
     showToast(state.settings.reminder ? 'Lembrete ativado! 🔔' : 'Lembrete desativado');
   }
 
   function saveReminderTime() {
     state.settings.reminderTime = document.getElementById('setting-reminder-time').value;
+    state.settings.lastReminderDate = null; // reset pra permitir disparar no novo horario hoje
     saveState();
+  }
+
+  // Reminder scheduler: checa a cada 30s se eh hora de disparar
+  function checkReminderDue() {
+    if (!state.settings.reminder) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    const [h, m] = (state.settings.reminderTime || '08:00').split(':').map(Number);
+    const now = new Date();
+    const target = new Date();
+    target.setHours(h, m, 0, 0);
+
+    // Janela de 2min para tolerar intervalo de check
+    const diffMin = (now - target) / 60000;
+    if (diffMin < 0 || diffMin > 2) return;
+
+    const todayStr = now.toISOString().slice(0, 10);
+    if (state.settings.lastReminderDate === todayStr) return;
+
+    state.settings.lastReminderDate = todayStr;
+    saveState();
+    fireReminderNotification();
+  }
+
+  function fireReminderNotification() {
+    const title = 'Treino da Simone 💜';
+    const options = {
+      body: 'Hora de se cuidar, Mamusca! Seu treino ta esperando.',
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'treino-reminder',
+      renotify: true
+    };
+
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, options)).catch(() => {
+        try { new Notification(title, options); } catch(e) {}
+      });
+    } else {
+      try { new Notification(title, options); } catch(e) {}
+    }
   }
 
   function showAbout() {
@@ -874,11 +1513,81 @@ const App = (function() {
   function resetData() {
     if (confirm('Tem certeza que deseja apagar todos os dados? Essa acao nao pode ser desfeita.')) {
       localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_WALKS);
+      localStorage.removeItem(LS_ONBOARDING);
       state = getDefaultState();
       saveState();
       switchTab('home');
       showToast('Dados resetados');
     }
+  }
+
+  // ══════════════════════════════════════
+  //  EXPORT / IMPORT
+  // ══════════════════════════════════════
+  function exportData() {
+    const allData = {
+      treino: state,
+      walks: loadWalks(),
+      onboarding: localStorage.getItem(LS_ONBOARDING),
+      exportDate: new Date().toISOString(),
+      version: '3.0'
+    };
+
+    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+    const filename = `treino-simone-backup-${today()}.json`;
+
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], filename, { type: 'application/json' });
+      const shareData = { files: [file], title: 'Backup Treino Simone' };
+      if (navigator.canShare(shareData)) {
+        navigator.share(shareData).catch(() => downloadBlob(blob, filename));
+        return;
+      }
+    }
+
+    downloadBlob(blob, filename);
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup exportado! 📤');
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        if (data.treino) {
+          state = { ...getDefaultState(), ...data.treino };
+          saveState();
+        }
+        if (data.walks) {
+          saveWalks(data.walks);
+        }
+        if (data.onboarding) {
+          localStorage.setItem(LS_ONBOARDING, data.onboarding);
+        }
+
+        showToast('Dados importados com sucesso! 📥');
+        switchTab('home');
+      } catch(err) {
+        showToast('Erro ao importar: arquivo invalido');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
   }
 
   // ══════════════════════════════════════
@@ -895,6 +1604,18 @@ const App = (function() {
   // ══════════════════════════════════════
   function init() {
     registerSW();
+
+    // Reminder scheduler: checa a cada 30s + uma vez imediato
+    checkReminderDue();
+    setInterval(checkReminderDue, 30000);
+    // Quando a PWA volta pro foreground, checa de novo
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkReminderDue();
+    });
+
+    // Check onboarding first
+    if (checkOnboarding()) return;
+
     switchTab('home');
   }
 
@@ -923,6 +1644,16 @@ const App = (function() {
     saveReminderTime,
     showAbout,
     resetData,
+    playOnboardingAudio,
+    finishOnboarding,
+    playMotivationalAudio,
+    togglePainRegion,
+    startWalk,
+    pauseWalk,
+    stopWalk,
+    showWalkOnMap,
+    exportData,
+    importData,
   };
 
 })();

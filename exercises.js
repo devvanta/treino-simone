@@ -517,8 +517,9 @@ const DAY_MAP = {
   0: 0  // Domingo = Descanso
 };
 
-// Frases motivacionais (32 frases)
+// Frases motivacionais (100+ frases: fitness, biblicas, saude, do Dan)
 const MOTIVATIONAL_QUOTES = [
+  // ── Fitness (30) ──
   { text: 'Cada movimento conta. Voce esta ficando mais forte a cada dia!', author: 'Seu corpo agradece' },
   { text: 'O exercicio e a melhor medicina que existe.', author: 'Hipocrates' },
   { text: 'Nao e sobre ser perfeita, e sobre ser consistente.', author: 'Para Simone' },
@@ -549,6 +550,167 @@ const MOTIVATIONAL_QUOTES = [
   { text: 'A consistencia vence o talento quando o talento nao e consistente.', author: 'Tim Notke' },
   { text: 'Mente sa, corpo sao. Voce esta cuidando dos dois!', author: 'Equilibrio' },
   { text: 'Orgulhe-se de cada treino. Voce esta fazendo a diferenca.', author: 'Orgulho' },
+
+  // ── Biblicas (40) ──
+  { text: 'O Senhor e a minha forca e o meu escudo; nele o meu coracao confia, e dele recebo ajuda.', author: 'Salmos 28:7' },
+  { text: 'Tudo posso naquele que me fortalece.', author: 'Filipenses 4:13' },
+  { text: 'Aqueles que esperam no Senhor renovam as suas forcas. Voam alto como aguias.', author: 'Isaias 40:31' },
+  { text: 'O Senhor e o meu pastor; nada me faltara.', author: 'Salmos 23:1' },
+  { text: 'Nao temas, porque eu sou contigo; nao te assombres, porque eu sou o teu Deus.', author: 'Isaias 41:10' },
+  { text: 'O coracao alegre e bom remedio, mas o espirito abatido seca os ossos.', author: 'Proverbios 17:22' },
+  { text: 'Entrega o teu caminho ao Senhor; confia nele, e ele tudo fara.', author: 'Salmos 37:5' },
+  { text: 'Porque eu, o Senhor teu Deus, te tomo pela tua mao direita e te digo: Nao temas, eu te ajudo.', author: 'Isaias 41:13' },
+  { text: 'Lancai sobre ele toda a vossa ansiedade, porque ele tem cuidado de vos.', author: '1 Pedro 5:7' },
+  { text: 'O Senhor e bom, e fortaleza no dia da angustia, e conhece os que nele confiam.', author: 'Naum 1:7' },
+  { text: 'Porque Deus nao nos deu o espirito de temor, mas de fortaleza, de amor e de moderacao.', author: '2 Timoteo 1:7' },
+  { text: 'Sou grata por ter sido feita de modo especial e maravilhoso.', author: 'Salmos 139:14' },
+  { text: 'O Senhor te guardara de todo mal; ele guardara a tua alma.', author: 'Salmos 121:7' },
+  { text: 'A paz vos deixo, a minha paz vos dou; nao vo-la dou como o mundo a da.', author: 'Joao 14:27' },
+  { text: 'Buscai primeiro o reino de Deus e a sua justica, e as demais coisas vos serao acrescentadas.', author: 'Mateus 6:33' },
+  { text: 'O Senhor e a minha luz e a minha salvacao; a quem temerei?', author: 'Salmos 27:1' },
+  { text: 'Em tudo dai gracas, porque esta e a vontade de Deus em Cristo Jesus.', author: '1 Tessalonicenses 5:18' },
+  { text: 'Deus e o nosso refugio e fortaleza, socorro bem presente na angustia.', author: 'Salmos 46:1' },
+  { text: 'Confie no Senhor de todo o seu coracao e nao se apoie em seu proprio entendimento.', author: 'Proverbios 3:5' },
+  { text: 'O Senhor te abencoe e te guarde; o Senhor faca resplandecer o seu rosto sobre ti.', author: 'Numeros 6:24-25' },
+  { text: 'Mas os que esperam no Senhor renovarao as suas forcas e subirao com asas como aguias.', author: 'Isaias 40:31' },
+  { text: 'Alegrem-se sempre no Senhor. Novamente direi: alegrem-se!', author: 'Filipenses 4:4' },
+  { text: 'O amor e paciente, o amor e bondoso. Nao inveja, nao se vangloria, nao se orgulha.', author: '1 Corintios 13:4' },
+  { text: 'Pois eu bem sei os planos que tenho para vos, diz o Senhor; planos de paz e nao de mal.', author: 'Jeremias 29:11' },
+  { text: 'Bem-aventurados os que tem fome e sede de justica, porque eles serao fartos.', author: 'Mateus 5:6' },
+  { text: 'O que para os homens e impossivel, para Deus e possivel.', author: 'Lucas 18:27' },
+  { text: 'Sede fortes e corajosos. Nao temais, nem vos espanteis, pois o Senhor esta convosco.', author: '2 Cronicas 32:7' },
+  { text: 'Vinde a mim, todos os que estais cansados e sobrecarregados, e eu vos aliviarei.', author: 'Mateus 11:28' },
+  { text: 'O fruto do Espirito e: amor, alegria, paz, paciencia, amabilidade, bondade, fidelidade.', author: 'Galatas 5:22' },
+  { text: 'A graca do Senhor Jesus Cristo seja com o vosso espirito.', author: 'Filipenses 4:23' },
+  { text: 'O Senhor e misericordioso e compassivo, longanimo e assaz benigno.', author: 'Salmos 103:8' },
+  { text: 'Ele sara os quebrantados de coracao e lhes penisa as feridas.', author: 'Salmos 147:3' },
+  { text: 'Bendize, o minha alma, ao Senhor, e nao te esquecas de nenhum dos seus beneficios.', author: 'Salmos 103:2' },
+  { text: 'Porque onde estiver o vosso tesouro, ali estara tambem o vosso coracao.', author: 'Mateus 6:21' },
+  { text: 'Deus e amor; e quem permanece no amor permanece em Deus, e Deus nele.', author: '1 Joao 4:16' },
+  { text: 'Clama a mim, e responder-te-ei, e anunciar-te-ei coisas grandes e firmes.', author: 'Jeremias 33:3' },
+  { text: 'O Senhor pelejara por vos, e vos vos calareis.', author: 'Exodo 14:14' },
+  { text: 'Porque os montes se retirarao, e os outeiros serao removidos; mas a minha benignidade nao se apartara de ti.', author: 'Isaias 54:10' },
+  { text: 'O Senhor e fiel; ele os fortalecera e os protegera do Maligno.', author: '2 Tessalonicenses 3:3' },
+  { text: 'Porque o Senhor Deus e sol e escudo; o Senhor da graca e gloria.', author: 'Salmos 84:11' },
+
+  // ── Saude e bem-estar (15) ──
+  { text: 'Dormir bem e tao importante quanto se exercitar. Cuide do seu sono.', author: 'Saude integral' },
+  { text: 'A agua e o melhor remedio: hidrate-se todos os dias.', author: 'Dica de saude' },
+  { text: 'Alongar-se pela manha prepara o corpo para um dia melhor.', author: 'Bem-estar' },
+  { text: 'Rir e o melhor exercicio para a alma.', author: 'Sabedoria popular' },
+  { text: 'Cuidar de si mesma nao e egoismo, e sobrevivencia.', author: 'Autocuidado' },
+  { text: 'Uma caminhada de 20 minutos pode mudar todo o seu dia.', author: 'Movimento' },
+  { text: 'Ouca seu corpo. Ele e sabio e sabe do que precisa.', author: 'Sabedoria do corpo' },
+  { text: 'A alimentacao e o combustivel da saude. Escolha bem.', author: 'Nutricao' },
+  { text: 'Respirar profundamente acalma a mente e fortalece o corpo.', author: 'Respiracao' },
+  { text: 'Cada noite bem dormida e uma vitoria para sua saude.', author: 'Sono' },
+  { text: 'O sol da manha e remedio natural: tome 15 minutos de sol por dia.', author: 'Vitamina D' },
+  { text: 'Abracos liberam ocitocina — o hormonio da felicidade.', author: 'Ciencia do afeto' },
+  { text: 'Prevenir e melhor que remediar. Seu treino e prevencao.', author: 'Medicina preventiva' },
+  { text: 'Articulacoes saudaveis precisam de movimento. Continue se mexendo!', author: 'Reumatologia' },
+  { text: 'Gratidao melhora a saude mental e fisica. Agradeca hoje.', author: 'Psicologia positiva' },
+
+  // ── Do Dan (15) ──
+  { text: 'Orgulho de voce, Mamusca!', author: 'Dan' },
+  { text: 'Cada dia mais forte! Estou torcendo por voce.', author: 'Dan' },
+  { text: 'Voce e a melhor mae do mundo. Cuide-se sempre.', author: 'Dan' },
+  { text: 'Mamusca, voce e inspiracao pra todo mundo!', author: 'Dan' },
+  { text: 'Eu e o Davi fizemos esse app com muito amor pra voce.', author: 'Dan' },
+  { text: 'Nao desista! Voce ja provou que e guerreira.', author: 'Dan' },
+  { text: 'Voce treinou hoje? Parabens! Cada dia conta.', author: 'Dan' },
+  { text: 'Sua saude e o que mais importa pra gente, Mamusca.', author: 'Dan' },
+  { text: 'Quando doer, lembre que voce esta ficando mais forte.', author: 'Dan' },
+  { text: 'Eu sei que voce consegue. Acredito em voce!', author: 'Dan' },
+  { text: 'Mamusca raiz nao pula treino! Vai la!', author: 'Dan' },
+  { text: 'Voce e prova de que idade e so um numero.', author: 'Dan' },
+  { text: 'Davi e eu te amamos demais. Cuide desse corpao!', author: 'Dan e Davi' },
+  { text: 'Mais um treino concluido! A Simone e fera!', author: 'Dan' },
+  { text: 'Voce esta cuidando de voce e isso me deixa muito feliz.', author: 'Dan' },
+
+  // ── Extras ──
   { text: 'Lembre-se: ate os atletas comecaram do zero.', author: 'Perspectiva' },
   { text: 'Seu sorriso depois do treino vale mais que qualquer trofeu.', author: 'Felicidade' }
 ];
+
+// Dicas de dor por regiao corporal
+// Banco de audios (shuffle automatico). Pra adicionar novos:
+// 1. Coloca em treino-simone/audio/ seguindo o padrao dan_frase_2.ogg, davi_postreino_2.ogg, etc
+// 2. Adiciona o caminho no array correspondente abaixo
+// 3. App faz shuffle automatico e evita repetir o ultimo
+const AUDIO_LIBRARY = {
+  welcome: {
+    dan:  ['audio/dan_welcome.ogg'],
+    davi: ['audio/davi_welcome.ogg']
+  },
+  frase: {
+    dan:  ['audio/dan_frase.ogg'],
+    davi: ['audio/davi_frase.ogg']
+  },
+  postreino: {
+    dan:  ['audio/dan_postreino.ogg'],
+    davi: ['audio/davi_postreino.ogg']
+  }
+};
+
+const PAIN_TIPS = {
+  cervical: [
+    "Aplique compressa morna por 15-20 minutos na regiao do pescoco para aliviar a tensao.",
+    "Faca mobilidade cervical suave: incline a orelha em direcao ao ombro, 15 segundos cada lado.",
+    "Evite ficar olhando para baixo no celular por longos periodos — levante o aparelho na altura dos olhos.",
+    "Ao dormir, use um travesseiro que mantenha o pescoco alinhado com a coluna. Nem muito alto nem muito baixo.",
+    "Alongamento do trapezio: puxe suavemente a cabeca para o lado com a mao. 20 segundos cada.",
+    "Se a dor persistir por mais de 3 dias ou piorar, consulte seu medico.",
+    "Evite carregar bolsas pesadas em um ombro so — distribua o peso.",
+    "Faca pausas a cada 30 minutos se estiver sentada. Levante e movimente o pescoco suavemente.",
+    "Evite movimentos bruscos do pescoco (virar a cabeca de repente). Movimente-se devagar.",
+    "Respiracao profunda relaxa a musculatura cervical — 5 inspiracoes lentas pelo nariz."
+  ],
+  joelho_direito: [
+    "Aplique gelo por 15 minutos apos o exercicio se sentir inchaco ou calor no joelho.",
+    "Evite ficar muito tempo sentada com o joelho flexionado. Estique a perna periodicamente.",
+    "Fortalecimento do quadriceps protege o joelho — continue fazendo extensao de joelho sentada.",
+    "Use calcado com bom amortecimento para caminhar. Evite chinelo ou sapato sem suporte.",
+    "Ao subir escadas, lidere com a perna esquerda (boa). Ao descer, lidere com a direita.",
+    "Se o joelho inchar, eleve a perna e aplique gelo. Nao force exercicios com dor aguda.",
+    "Glucosamina e condroitina podem ajudar — converse com seu medico sobre suplementacao.",
+    "Natacao e hidroginastica sao excelentes: a agua reduz 50-70% do peso nas articulacoes.",
+    "Evite agachamentos profundos — flexione no maximo ate 90 graus pra proteger a cartilagem.",
+    "Ao levantar da cadeira, use as maos nos bracos da cadeira pra reduzir carga no joelho."
+  ],
+  lombar: [
+    "Alongamento gato-vaca: em quatro apoios, arredonde e arqueie as costas. 10 repeticoes suaves.",
+    "Compressa morna por 20 minutos na lombar ajuda a relaxar a musculatura.",
+    "Ao sentar, mantenha os pes apoiados no chao e costas encostadas na cadeira.",
+    "Caminhada leve de 15-20 minutos pode aliviar dor lombar — o movimento lubrifica as articulacoes.",
+    "Evite ficar sentada por mais de 1 hora seguida. Levante, alongue, caminhe um pouco.",
+    "Durma de lado com um travesseiro entre os joelhos para alinhar a coluna.",
+    "Respiracao diafragmatica ajuda a relaxar a musculatura da lombar. 10 respiracoes profundas.",
+    "Se a dor irradiar para a perna, consulte o medico — pode ser compressao de nervo.",
+    "Para pegar objetos no chao, flexione os joelhos (nao a coluna) — agache mantendo as costas retas.",
+    "Fortalecer o core (abdomen) protege a lombar — priorize exercicios de prancha e ponte."
+  ],
+  ombro: [
+    "Compressa morna por 15 minutos pode aliviar dor muscular no ombro.",
+    "Faca circulos suaves com os ombros: 10 para frente, 10 para tras.",
+    "Evite dormir sobre o ombro dolorido. Durma de costas ou do lado oposto.",
+    "Pendule o braco relaxado para frente e para tras — movimento de pendulo alivia tensao.",
+    "Se doer ao levantar o braco acima da cabeca, evite exercicios overhead ate melhorar.",
+    "Alongue o peitoral na porta — braco apoiado no batente, gire o corpo para fora. 20 segundos.",
+    "Evite carregar peso com o braco do ombro dolorido. Use o lado oposto ou distribua.",
+    "Aplique gelo (15 min) apos atividade se houver inchaco ou dor aguda recente.",
+    "Rotacao externa leve com elastico fortalece o manguito rotador — 10 repeticoes por dia.",
+    "Se a dor irradiar pra o braco ou formigar a mao, procure ortopedista — pode ser nervo."
+  ],
+  geral: [
+    "Beba bastante agua — a hidratacao ajuda na saude das articulacoes.",
+    "Descanso e parte do treino. Nao force se estiver com dor aguda.",
+    "Se a dor persistir por mais de uma semana, agende consulta com seu medico.",
+    "Banho morno pode ajudar a relaxar a musculatura antes de dormir.",
+    "Alongamento suave antes de dormir melhora a qualidade do sono.",
+    "Dor de 0 a 3: pode treinar leve. Dor 4-6: reduza intensidade. Dor 7+: descanse e avalie.",
+    "Omega-3 (peixe, linhaca) tem efeito anti-inflamatorio natural — inclua na dieta.",
+    "Vitamina D e essencial pra saude ossea e articular. Exponha-se ao sol 15 min por dia.",
+    "Perder 1kg alivia ate 4kg de carga nas articulacoes. Cuidar do peso ajuda muito.",
+    "Registre a dor aqui todo dia — ajuda voce e seu medico a ver padroes de melhora ou piora."
+  ]
+};
