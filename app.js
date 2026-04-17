@@ -20,8 +20,8 @@
   function getDefaultState() {
     return {
       name: 'Simone',
-      age: 58,
-      restrictions: 'Artrose joelho direito, cervicalgia',
+      age: 64,
+      restrictions: 'Artrose na cervical e joelho direito',
       reminderTime: '07:00',
       remindersEnabled: false,
       workouts: {},
@@ -927,7 +927,7 @@
       <div class="card-gradient grad-primary mb-5" style="position:relative; overflow:hidden;">
         <div style="position:absolute; top:-10px; right:-10px; font-size:60px; opacity:0.12;">🏋️</div>
         <div class="flex items-center gap-4">
-          <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl">👩</div>
+          <img src="profile.jpg" alt="Simone" class="w-16 h-16 rounded-full object-cover border-2 border-white/30">
           <div>
             <h2 class="font-heading text-xl font-bold">${state.name} Trombini</h2>
             <p class="text-white/70 text-sm">${state.age} anos</p>
