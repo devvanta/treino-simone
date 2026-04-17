@@ -1,1070 +1,928 @@
-// app.js — Treino da Simone - Premium Fitness PWA
+// app.js — Treino da Simone v2.0 — perpetio/fitness style PWA
 // All state persisted in localStorage
 
-(function() {
+const App = (function() {
   'use strict';
 
   // ── Constants ──
-  const LS_KEY = 'treino_simone_data';
-  const DAY_NAMES_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
-  const DAY_NAMES_FULL = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'];
+  const LS_KEY = 'treino_simone_v2';
   const MONTH_NAMES = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const DAY_NAMES_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
+
+  // Workout card colors cycle
+  const CARD_COLORS = ['orange','teal','purple','green','orange','teal'];
+  const CARD_BG_COLORS = ['#FCB74F','#5C9BA4','#6358E1','#66BB6A','#FCB74F','#5C9BA4'];
+  const CARD_IMAGES = [
+    'assets/cardio.png',
+    'assets/arms.png',
+    'assets/cardio.png',
+    'assets/arms.png',
+    'assets/cardio.png',
+    'assets/arms.png'
+  ];
+
+  // Medals
+  const MEDALS = [
+    { id: 'first', emoji: '🥇', name: 'Primeiro Treino', desc: 'Complete 1 treino', threshold: 1 },
+    { id: 'five', emoji: '⭐', name: '5 Treinos', desc: 'Complete 5 treinos', threshold: 5 },
+    { id: 'ten', emoji: '🏆', name: '10 Treinos', desc: 'Complete 10 treinos', threshold: 10 },
+    { id: 'streak3', emoji: '🔥', name: '3 Dias Seguidos', desc: '3 dias consecutivos', threshold: 'streak3' },
+    { id: 'streak7', emoji: '💎', name: '7 Dias Seguidos', desc: '7 dias consecutivos', threshold: 'streak7' },
+    { id: 'alldays', emoji: '👑', name: 'Semana Completa', desc: 'Todos os 6 treinos', threshold: 'alldays' },
+  ];
 
   // ── State ──
   let state = loadState();
-  let activeTab = 'home';
-  let expandedExercise = null;
+  let currentTab = 'home';
+  let currentDayId = null;
+  let currentExercise = null;
   let timerInterval = null;
   let timerRemaining = 0;
+  let calendarMonth = new Date().getMonth();
+  let calendarYear = new Date().getFullYear();
+  let weightChart = null;
+  let selectedMood = '';
 
+  // ── State management ──
   function getDefaultState() {
     return {
-      name: 'Simone',
-      age: 64,
-      restrictions: 'Artrose na cervical e joelho direito',
-      reminderTime: '07:00',
-      remindersEnabled: false,
-      workouts: {},
-      health: {},
-      painDiary: {},
-      streak: 0,
-      totalCompleted: 0,
-      calendarMonth: new Date().getMonth(),
-      calendarYear: new Date().getFullYear()
+      completedExercises: {},   // { 'd1e1': { date, weight } }
+      completedDays: {},        // { '2026-04-15': [1,3] } — day IDs done that date
+      healthLog: {},            // { '2026-04-15': { sleep, quality, weight, steps, pain, mood } }
+      settings: { reminder: false, reminderTime: '08:00' },
+      totalMinutes: 0,
     };
   }
 
   function loadState() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) return { ...getDefaultState(), ...JSON.parse(raw) };
-    } catch(e) { console.error('Load error', e); }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { ...getDefaultState(), ...parsed };
+      }
+    } catch(e) {}
     return getDefaultState();
   }
 
   function saveState() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-    catch(e) { console.error('Save error', e); }
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
   }
 
-  // ── Utility ──
-  function todayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // ── Helpers ──
+  function today() {
+    return new Date().toISOString().slice(0, 10);
   }
 
-  function dateStr(d) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  function getTotalCompleted() {
+    const doneDays = new Set();
+    Object.entries(state.completedDays).forEach(([date, dayIds]) => {
+      dayIds.forEach(id => doneDays.add(`${date}-${id}`));
+    });
+    return doneDays.size;
   }
 
-  function dayOfWeek() { return new Date().getDay(); }
-
-  function getTrainingDay() { return DAY_MAP[dayOfWeek()] || 0; }
-
-  function getGreeting() {
-    const h = new Date().getHours();
-    if (h < 12) return 'Bom dia';
-    if (h < 18) return 'Boa tarde';
-    return 'Boa noite';
-  }
-
-  function getDailyQuote() {
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-    return MOTIVATIONAL_QUOTES[dayOfYear % MOTIVATIONAL_QUOTES.length];
-  }
-
-  function $(sel, parent) { return (parent || document).querySelector(sel); }
-  function $$(sel, parent) { return [...(parent || document).querySelectorAll(sel)]; }
-
-  // ── Streak Calculator ──
-  function calculateStreak() {
-    let streak = 0;
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    while(true) {
-      const ds = dateStr(d);
-      const dow = d.getDay();
-      if (dow === 0) { d.setDate(d.getDate() - 1); continue; }
-      if (state.workouts[ds] && state.workouts[ds].completed) {
-        streak++;
-        d.setDate(d.getDate() - 1);
-      } else { break; }
+  function getInProgressCount() {
+    const todayDate = today();
+    let count = 0;
+    for (let dayId = 1; dayId <= 6; dayId++) {
+      const dayData = EXERCISE_DB[dayId];
+      if (!dayData) continue;
+      const someCompleted = dayData.exercises.some(ex => state.completedExercises[ex.id]);
+      const allCompleted = dayData.exercises.every(ex => state.completedExercises[ex.id]);
+      if (someCompleted && !allCompleted) count++;
     }
-    const today = todayStr();
-    if (state.workouts[today] && state.workouts[today].completed) streak++;
-    return streak;
+    return count;
   }
 
-  function countTotalWorkouts() {
-    return Object.values(state.workouts).filter(w => w.completed).length;
+  function isDayFullyCompleted(dayId) {
+    const dayData = EXERCISE_DB[dayId];
+    if (!dayData) return false;
+    return dayData.exercises.every(ex => state.completedExercises[ex.id]);
   }
 
-  function getWeekProgress() {
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    let done = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const ds = dateStr(d);
-      if (state.workouts[ds] && state.workouts[ds].completed) done++;
+  function getEstimatedMinutes(dayId) {
+    const dayData = EXERCISE_DB[dayId];
+    if (!dayData) return 0;
+    let mins = 0;
+    dayData.exercises.forEach(ex => {
+      if (ex.isometric && ex.duration) {
+        mins += (ex.duration * (typeof ex.sets === 'number' ? ex.sets : 3)) / 60;
+      } else {
+        mins += (typeof ex.sets === 'number' ? ex.sets : 3) * 0.75;
+      }
+    });
+    return Math.round(mins + 2); // +2 for rest
+  }
+
+  function getRandomQuote() {
+    return MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+  }
+
+  // ── Toast ──
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // ── Confetti ──
+  function fireConfetti() {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const pieces = [];
+    const colors = ['#6358E1','#FCB74F','#5C9BA4','#F25252','#66BB6A','#FF9800'];
+
+    for (let i = 0; i < 120; i++) {
+      pieces.push({
+        x: Math.random() * canvas.width,
+        y: -20 - Math.random() * 200,
+        w: 6 + Math.random() * 6,
+        h: 10 + Math.random() * 8,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vy: 2 + Math.random() * 4,
+        vx: -1.5 + Math.random() * 3,
+        rot: Math.random() * Math.PI * 2,
+        vr: -0.1 + Math.random() * 0.2,
+      });
     }
-    return done;
-  }
 
-  function getTodayWorkout() {
-    const today = todayStr();
-    const tDay = getTrainingDay();
-    if (tDay === 0) return null;
-    if (!state.workouts[today]) {
-      state.workouts[today] = { day: tDay, exercises: {}, completed: false };
-      saveState();
+    let frame = 0;
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        p.vy += 0.05;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (frame < 120) requestAnimationFrame(animate);
+      else canvas.remove();
     }
-    return state.workouts[today];
+    animate();
   }
 
-  // ── Progress Ring SVG ──
-  function progressRingSVG(size, stroke, progress, color1, color2) {
-    const r = (size - stroke) / 2;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (progress * circ);
-    const id = 'pr' + Math.random().toString(36).substr(2,5);
-    return `
-      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-        <defs>
-          <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="${color1}"/>
-            <stop offset="100%" stop-color="${color2}"/>
-          </linearGradient>
-        </defs>
-        <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#F0F0F5" stroke-width="${stroke}"/>
-        <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="url(#${id})" stroke-width="${stroke}" stroke-linecap="round"
-          stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
-          class="progress-ring__circle"/>
-      </svg>`;
+  // ══════════════════════════════════════
+  //  TAB SWITCHING
+  // ══════════════════════════════════════
+  function switchTab(tab) {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // Deactivate all nav items
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+    // Show the bottom nav
+    document.querySelector('.bottom-nav').style.display = '';
+
+    currentTab = tab;
+
+    const screenId = `screen-${tab}`;
+    const screen = document.getElementById(screenId);
+    if (screen) {
+      screen.classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    // Activate nav button
+    const navBtn = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    // Render tab content
+    if (tab === 'home') renderHome();
+    else if (tab === 'workouts') renderWorkoutsTab();
+    else if (tab === 'health') renderHealth();
+    else if (tab === 'progress') renderProgress();
+    else if (tab === 'settings') renderSettings();
   }
 
-  // ════════════════════════════════════
-  // HOME TAB
-  // ════════════════════════════════════
+  // ══════════════════════════════════════
+  //  HOME SCREEN
+  // ══════════════════════════════════════
   function renderHome() {
-    const el = $('#home-content');
-    const greeting = getGreeting();
-    const quote = getDailyQuote();
-    const tDay = getTrainingDay();
-    const dayData = EXERCISE_DB[tDay];
-    const streak = calculateStreak();
-    const total = countTotalWorkouts();
-    const weekDone = getWeekProgress();
-    const today = todayStr();
-    const workout = state.workouts[today];
-    const isComplete = workout && workout.completed;
+    // Stats
+    const totalCompleted = getTotalCompleted();
+    const inProgress = getInProgressCount();
+    document.getElementById('stat-completed').textContent = totalCompleted;
+    document.getElementById('stat-progress').textContent = inProgress;
+    document.getElementById('stat-minutes').textContent = state.totalMinutes || 0;
 
-    // Week dots
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    let weekDotsHTML = '';
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const ds = dateStr(d);
-      const dow = d.getDay();
-      const isToday = ds === today;
-      const isDone = state.workouts[ds] && state.workouts[ds].completed;
-      const isRest = dow === 0;
-      let cls = 'pending';
-      if (isToday) cls = 'today';
-      else if (isDone) cls = 'done';
-      else if (isRest) cls = 'rest';
-      weekDotsHTML += `<div class="week-dot ${cls}">${DAY_NAMES_SHORT[dow].charAt(0)}</div>`;
-    }
+    // Workout scroll cards
+    renderWorkoutScroll();
 
-    el.innerHTML = `
-      <!-- Hero Greeting -->
-      <div class="card-gradient grad-primary mt-4 mb-5" style="position:relative; overflow:hidden;">
-        <div style="position:absolute; top:-20px; right:-20px; font-size:80px; opacity:0.15;">💪</div>
-        <p class="text-white/80 text-sm font-semibold mb-1">${greeting}</p>
-        <h1 class="font-heading text-3xl font-extrabold mb-3">Simone!</h1>
-        <p class="text-white/70 text-sm italic leading-relaxed">"${quote.text}"</p>
-        <p class="text-white/50 text-xs mt-1">— ${quote.author}</p>
-      </div>
-
-      <!-- Today's Workout Card -->
-      ${tDay === 0 ? `
-        <div class="card mb-5 text-center py-8">
-          <div class="text-5xl mb-3">🧘</div>
-          <h2 class="font-heading text-xl font-bold mb-2">Domingo de Descanso</h2>
-          <p class="text-txt-sec text-sm">Aproveite para relaxar e se recuperar.</p>
-        </div>
-      ` : `
-        <div class="card-gradient ${dayData.gradient} mb-5 cursor-pointer" onclick="switchToWorkout()" style="position:relative; overflow:hidden;">
-          <div style="position:absolute; top:-10px; right:-10px; font-size:64px; opacity:0.15;">${dayData.icon}</div>
-          <p class="text-white/70 text-xs font-semibold uppercase tracking-wider mb-1">Treino de Hoje</p>
-          <h2 class="font-heading text-2xl font-bold mb-1">${dayData.dayName}</h2>
-          <p class="text-white/80 text-sm mb-4">${dayData.dayLabel} — ${dayData.exercises.length} exercicios</p>
-          ${isComplete ? `
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                <svg width="16" height="16" fill="none" stroke="#fff" stroke-width="3"><path d="M2 8l4 4 8-8"/></svg>
-              </div>
-              <span class="text-white/90 font-semibold text-sm">Treino completo!</span>
-            </div>
-          ` : `
-            <button class="bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-8 rounded-2xl text-base hover:bg-white/30 transition-all" onclick="event.stopPropagation(); switchToWorkout()">
-              Comecar Treino
-            </button>
-          `}
-        </div>
-      `}
-
-      <!-- Weekly Overview -->
-      <div class="section-title mt-6">Semana Atual</div>
-      <div class="card mb-5">
-        <div class="flex justify-between items-center">${weekDotsHTML}</div>
-      </div>
-
-      <!-- Stats Row -->
-      <div class="grid grid-cols-3 gap-3 mb-6">
-        <div class="stat-card">
-          <div class="text-2xl mb-1">🔥</div>
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#F2994A,#F2C94C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${streak}</div>
-          <div class="text-txt-sec text-xs font-semibold">Sequencia</div>
-        </div>
-        <div class="stat-card">
-          <div class="text-2xl mb-1">🏆</div>
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#667EEA,#764BA2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${total}</div>
-          <div class="text-txt-sec text-xs font-semibold">Treinos</div>
-        </div>
-        <div class="stat-card">
-          <div class="text-2xl mb-1">📅</div>
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#11998E,#38EF7D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${weekDone}/6</div>
-          <div class="text-txt-sec text-xs font-semibold">Esta Semana</div>
-        </div>
-      </div>
-
-      <!-- Quick Health Log -->
-      <button class="w-full btn-gradient grad-secondary flex items-center justify-center gap-2 mb-8" onclick="switchTab('health')">
-        <span class="text-lg">❤️</span> Registrar Saude de Hoje
-      </button>
-    `;
+    // Motivation
+    renderMotivation();
   }
 
-  // Make switchToWorkout global
-  window.switchToWorkout = function() { switchTab('workout'); };
-
-  // ════════════════════════════════════
-  // WORKOUT TAB
-  // ════════════════════════════════════
-  function renderWorkout() {
-    const el = $('#workout-content');
-    const tDay = getTrainingDay();
-
-    if (tDay === 0) {
-      el.innerHTML = `
-        <div class="text-center py-16">
-          <div class="text-6xl mb-4">🧘</div>
-          <h2 class="font-heading text-2xl font-bold mb-2">Dia de Descanso</h2>
-          <p class="text-txt-sec">Aproveite o domingo para relaxar!</p>
-        </div>`;
-      return;
-    }
-
-    const dayData = EXERCISE_DB[tDay];
-    const today = todayStr();
-    const workout = getTodayWorkout();
-    const exercises = dayData.exercises;
-    const doneCount = exercises.filter(ex => workout.exercises[ex.id] && workout.exercises[ex.id].done).length;
-    const progress = exercises.length > 0 ? doneCount / exercises.length : 0;
-
-    // Header with progress ring
-    let html = `
-      <div class="flex items-center gap-4 mt-4 mb-6">
-        <div class="relative">
-          ${progressRingSVG(80, 6, progress, '#667EEA', '#764BA2')}
-          <div class="absolute inset-0 flex items-center justify-center">
-            <span class="font-heading text-lg font-extrabold">${doneCount}/${exercises.length}</span>
-          </div>
-        </div>
-        <div>
-          <h1 class="font-heading text-2xl font-bold">${dayData.dayName}</h1>
-          <p class="text-txt-sec text-sm">${dayData.dayLabel}</p>
-        </div>
-      </div>
-    `;
-
-    // Exercise cards
-    exercises.forEach((ex, idx) => {
-      const exState = workout.exercises[ex.id] || {};
-      const isDone = !!exState.done;
-      const isExpanded = expandedExercise === ex.id;
+  function renderWorkoutScroll() {
+    const container = document.getElementById('workout-scroll');
+    let html = '';
+    for (let dayId = 1; dayId <= 6; dayId++) {
+      const day = EXERCISE_DB[dayId];
+      if (!day) continue;
+      const colorClass = CARD_COLORS[dayId - 1];
+      const image = CARD_IMAGES[dayId - 1];
+      const exCount = day.exercises.length;
+      const mins = getEstimatedMinutes(dayId);
+      const done = isDayFullyCompleted(dayId);
 
       html += `
-        <div class="exercise-card ${isDone ? 'done' : ''}" id="ex-${ex.id}">
-          <div class="flex items-center gap-3 p-4 cursor-pointer" onclick="toggleExercise('${ex.id}')">
-            <div class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:${isDone ? 'linear-gradient(135deg,#11998E,#38EF7D)' : '#F0F0F5'}">
-              ${isDone ? '<svg width="20" height="20" fill="none" stroke="#fff" stroke-width="3"><path d="M3 10l5 5 10-10"/></svg>' : ex.muscleEmoji}
-            </div>
-            <div class="flex-1 min-w-0">
-              <h3 class="font-heading text-base font-bold ${isDone ? 'line-through opacity-60' : ''}">${ex.name}</h3>
-              <p class="text-txt-sec text-xs">${ex.sets}x${ex.reps} &middot; <span class="equip-tag">${ex.equipment}</span></p>
-            </div>
-            <div class="check-circle ${isDone ? 'checked' : ''}" onclick="event.stopPropagation(); toggleDone('${ex.id}')">
-              <svg fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
-            </div>
+        <div class="workout-card ${colorClass}" onclick="App.openWorkout(${dayId})">
+          <div class="wc-check ${done ? 'done' : ''}">${done ? '✓' : ''}</div>
+          <img src="${image}" alt="" class="wc-image">
+          <div class="wc-title">${day.dayName}</div>
+          <div class="wc-meta">${exCount} Exercicios · ${mins} Minutos</div>
+        </div>
+      `;
+    }
+    container.innerHTML = html;
+  }
+
+  function renderMotivation() {
+    const quote = getRandomQuote();
+    const banner = document.getElementById('motivation-banner');
+    banner.innerHTML = `
+      <div class="mb-emoji">🎉</div>
+      <div class="mb-text">
+        <strong>${quote.text}</strong>
+        <span>${quote.author}</span>
+      </div>
+    `;
+  }
+
+  // ══════════════════════════════════════
+  //  WORKOUTS TAB
+  // ══════════════════════════════════════
+  function renderWorkoutsTab() {
+    const container = document.getElementById('workouts-tab-grid');
+    const restContainer = document.getElementById('rest-day-container');
+    let html = '';
+    restContainer.innerHTML = '';
+
+    for (let dayId = 1; dayId <= 6; dayId++) {
+      const day = EXERCISE_DB[dayId];
+      if (!day) continue;
+      const exCount = day.exercises.length;
+      const mins = getEstimatedMinutes(dayId);
+      const done = isDayFullyCompleted(dayId);
+      const completedCount = day.exercises.filter(ex => state.completedExercises[ex.id]).length;
+      const bgColor = CARD_BG_COLORS[dayId - 1];
+
+      html += `
+        <div class="workout-list-card" onclick="App.openWorkout(${dayId})">
+          <div class="wlc-icon" style="background:${bgColor}20">
+            <span>${day.icon}</span>
           </div>
-
-          <div class="exercise-expand ${isExpanded ? 'open' : ''}" id="expand-${ex.id}">
-            <!-- YouTube Video (lazy) -->
-            <div class="video-container mb-4">
-              ${isExpanded ? `<iframe src="https://www.youtube.com/embed/${ex.youtubeId}?rel=0" allowfullscreen loading="lazy"></iframe>` : ''}
-            </div>
-
-            <!-- Como Fazer -->
-            <div class="mb-4">
-              <div class="instruction-label">Posicao Inicial</div>
-              <div class="instruction-text text-sm">${ex.startPosition}</div>
-            </div>
-            <div class="mb-4">
-              <div class="instruction-label">Execucao</div>
-              <div class="instruction-text text-sm">${ex.execution}</div>
-            </div>
-            <div class="mb-4">
-              <div class="instruction-label">Respiracao</div>
-              <div class="instruction-text text-sm">${ex.breathing}</div>
-            </div>
-
-            <!-- Caution -->
-            <div class="caution-box mb-4">
-              <span class="font-bold">⚠️ Cuidado (artrose):</span> ${ex.caution}
-            </div>
-
-            <!-- Weight Input -->
-            <div class="flex items-center gap-3 mb-3">
-              <span class="text-sm font-semibold text-txt-sec">Carga:</span>
-              <input type="text" class="weight-input" placeholder="Ex: 1L" value="${exState.weight || ''}" onchange="saveWeight('${ex.id}', this.value)">
-            </div>
-
-            <!-- Timer (for isometric) -->
-            ${ex.isometric ? `
-              <button class="w-full btn-gradient grad-primary flex items-center justify-center gap-2 py-3 rounded-2xl" onclick="startTimer(${ex.duration || 25}, '${ex.name}')">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                Iniciar Timer (${ex.duration || 25}s)
-              </button>
-            ` : ''}
+          <div class="wlc-info">
+            <div class="wlc-name">${day.dayName}</div>
+            <div class="wlc-day">${day.dayLabel}</div>
+            <div class="wlc-meta">${exCount} exercicios · ${mins} min · ${done ? '✓ Completo' : `${completedCount}/${exCount}`}</div>
           </div>
+          <span class="wlc-chevron">&#8250;</span>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    // Show Sunday rest card if it's Sunday
+    if (new Date().getDay() === 0) {
+      restContainer.innerHTML = `
+        <div class="rest-day-card">
+          <div class="rdc-emoji">😴</div>
+          <h2>Dia de Descanso</h2>
+          <p>Hoje e domingo! Descanse, alongue-se e hidrate-se.<br>Voce merece!</p>
+        </div>
+      `;
+    }
+  }
+
+  // ══════════════════════════════════════
+  //  WORKOUT DETAIL SCREEN
+  // ══════════════════════════════════════
+  function openWorkout(dayId) {
+    currentDayId = dayId;
+    const day = EXERCISE_DB[dayId];
+    if (!day) return;
+
+    // Hide all screens, show workout detail
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-workout-detail').classList.add('active');
+    document.querySelector('.bottom-nav').style.display = 'none';
+    window.scrollTo(0, 0);
+
+    const colorClass = CARD_COLORS[dayId - 1];
+    const bgColor = CARD_BG_COLORS[dayId - 1];
+    const image = CARD_IMAGES[dayId - 1];
+    const exCount = day.exercises.length;
+    const mins = getEstimatedMinutes(dayId);
+
+    let exerciseListHtml = '';
+    day.exercises.forEach((ex, idx) => {
+      const done = !!state.completedExercises[ex.id];
+      const repsText = ex.isometric ? ex.reps : `${ex.sets}x${ex.reps}`;
+      exerciseListHtml += `
+        <div class="exercise-row" onclick="App.openExercise(${dayId}, '${ex.id}')">
+          <div class="er-icon ${done ? 'done' : ''}">
+            ${done ? '✓' : ex.muscleEmoji}
+          </div>
+          <div class="er-info">
+            <div class="er-name">${ex.name}</div>
+            <div class="er-sub">${repsText} · ${ex.muscleGroup}</div>
+          </div>
+          <span class="er-chevron">&#8250;</span>
         </div>
       `;
     });
 
-    el.innerHTML = html;
+    const content = document.getElementById('workout-detail-content');
+    content.innerHTML = `
+      <div class="workout-hero-container" style="background:${bgColor}">
+        <div class="workout-hero-placeholder">${day.icon}</div>
+        <div class="workout-hero-gradient">
+          <button class="btn-back" onclick="App.backToTab()">&#8249;</button>
+        </div>
+      </div>
+      <div class="workout-detail-header">
+        <h1>${day.dayName}</h1>
+        <div class="workout-tags">
+          <span class="workout-tag">⏱️ ${mins} min</span>
+          <span class="workout-tag">🏋️ ${exCount} exercicios</span>
+          <span class="workout-tag">📅 ${day.dayLabel}</span>
+        </div>
+      </div>
+      <div class="exercise-list">
+        ${exerciseListHtml}
+      </div>
+    `;
+
+    // Show/hide start button
+    document.getElementById('btn-start-workout').style.display = '';
   }
 
-  // Toggle exercise expansion
-  window.toggleExercise = function(id) {
-    if (expandedExercise === id) {
-      expandedExercise = null;
+  function startFirstExercise() {
+    const day = EXERCISE_DB[currentDayId];
+    if (!day || !day.exercises.length) return;
+    // Find first incomplete exercise
+    const next = day.exercises.find(ex => !state.completedExercises[ex.id]) || day.exercises[0];
+    openExercise(currentDayId, next.id);
+  }
+
+  function backToTab() {
+    document.getElementById('btn-start-workout').style.display = 'none';
+    stopTimer();
+    switchTab(currentTab);
+  }
+
+  // ══════════════════════════════════════
+  //  EXERCISE DETAIL SCREEN
+  // ══════════════════════════════════════
+  function openExercise(dayId, exId) {
+    currentDayId = dayId;
+    const day = EXERCISE_DB[dayId];
+    if (!day) return;
+    const ex = day.exercises.find(e => e.id === exId);
+    if (!ex) return;
+    currentExercise = ex;
+
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-exercise-detail').classList.add('active');
+    document.getElementById('btn-start-workout').style.display = 'none';
+    document.querySelector('.bottom-nav').style.display = 'none';
+    window.scrollTo(0, 0);
+
+    const done = !!state.completedExercises[ex.id];
+    const savedWeight = state.completedExercises[ex.id]?.weight || '';
+    const repsText = ex.isometric ? ex.reps : `${ex.sets} series x ${ex.reps} reps`;
+
+    let timerHtml = '';
+    if (ex.isometric && ex.duration) {
+      timerHtml = `
+        <div class="timer-section">
+          <label>Cronometro Isometrico</label>
+          <div class="timer-display" id="timer-display">${ex.duration}</div>
+          <div class="timer-controls">
+            <button class="timer-btn primary" id="timer-start-btn" onclick="App.toggleTimer(${ex.duration})">Iniciar</button>
+            <button class="timer-btn secondary" onclick="App.resetTimer(${ex.duration})">Resetar</button>
+          </div>
+        </div>
+      `;
+    }
+
+    const content = document.getElementById('exercise-detail-content');
+    content.innerHTML = `
+      <div class="video-container">
+        <div class="video-back-btn">
+          <button class="btn-back" onclick="App.backToWorkout()">&#8249;</button>
+        </div>
+        <iframe
+          src="https://www.youtube.com/embed/${ex.youtubeId}?rel=0&modestbranding=1"
+          title="${ex.name}"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+      <div class="exercise-detail-content">
+        <h1>${ex.name}</h1>
+        <p class="ed-muscle">${ex.muscleEmoji} ${ex.muscleGroup} · ${ex.equipment}</p>
+        <div class="ed-sets-reps">
+          <span class="ed-tag">📋 ${repsText}</span>
+          ${ex.equipment ? `<span class="ed-tag">🎒 ${ex.equipment}</span>` : ''}
+        </div>
+
+        <div class="info-section">
+          <div class="info-card">
+            <div class="info-title">🎯 Posicao Inicial</div>
+            <div class="info-body">${ex.startPosition}</div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <div class="info-card">
+            <div class="info-title">▶️ Execucao</div>
+            <div class="info-body">${ex.execution}</div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <div class="info-card">
+            <div class="info-title">🌬️ Respiracao</div>
+            <div class="info-body">${ex.breathing}</div>
+          </div>
+        </div>
+
+        <div class="caution-box">
+          <div class="caution-title">⚠️ Cuidados (Artrose)</div>
+          <div class="caution-body">${ex.caution}</div>
+        </div>
+
+        ${timerHtml}
+
+        <div class="weight-section">
+          <label>Peso utilizado</label>
+          <div class="weight-input-row">
+            <input type="number" id="exercise-weight" min="0" max="50" step="0.5" placeholder="0" value="${savedWeight}">
+            <span>kg</span>
+          </div>
+        </div>
+
+        <button class="btn-complete ${done ? 'completed' : ''}" id="btn-complete-exercise" onclick="App.completeExercise('${ex.id}')">
+          ${done ? '✓ Concluido' : 'Concluir ✓'}
+        </button>
+      </div>
+    `;
+  }
+
+  function backToWorkout() {
+    stopTimer();
+    if (currentDayId) {
+      openWorkout(currentDayId);
     } else {
-      expandedExercise = id;
+      switchTab('home');
     }
-    renderWorkout();
-    if (expandedExercise) {
-      setTimeout(() => {
-        const card = document.getElementById('ex-' + id);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+  }
+
+  function completeExercise(exId) {
+    const weightInput = document.getElementById('exercise-weight');
+    const weight = weightInput ? parseFloat(weightInput.value) || 0 : 0;
+
+    const wasAlreadyDone = !!state.completedExercises[exId];
+
+    state.completedExercises[exId] = {
+      date: today(),
+      weight: weight
+    };
+
+    // Track estimated minutes
+    if (!wasAlreadyDone && currentExercise) {
+      let addedMins = 2; // rough estimate per exercise
+      if (currentExercise.isometric && currentExercise.duration) {
+        addedMins = Math.ceil((currentExercise.duration * (currentExercise.sets || 3)) / 60) + 1;
+      }
+      state.totalMinutes = (state.totalMinutes || 0) + addedMins;
     }
-  };
 
-  // Toggle exercise done
-  window.toggleDone = function(id) {
-    const today = todayStr();
-    const workout = getTodayWorkout();
-    if (!workout) return;
-    if (!workout.exercises[id]) workout.exercises[id] = {};
-    workout.exercises[id].done = !workout.exercises[id].done;
+    // Check if day is fully complete
+    if (currentDayId) {
+      const day = EXERCISE_DB[currentDayId];
+      if (day && day.exercises.every(ex => state.completedExercises[ex.id])) {
+        // Record completed day
+        const d = today();
+        if (!state.completedDays[d]) state.completedDays[d] = [];
+        if (!state.completedDays[d].includes(currentDayId)) {
+          state.completedDays[d].push(currentDayId);
+        }
 
-    // Check if all done
-    const tDay = getTrainingDay();
-    const dayData = EXERCISE_DB[tDay];
-    if (dayData) {
-      const allDone = dayData.exercises.every(ex => workout.exercises[ex.id] && workout.exercises[ex.id].done);
-      if (allDone && !workout.completed) {
-        workout.completed = true;
-        state.totalCompleted = countTotalWorkouts();
-        state.streak = calculateStreak();
         saveState();
-        renderWorkout();
-        showCelebration();
+        fireConfetti();
+        showToast('Treino completo! Parabens, Simone! 🎉');
+
+        setTimeout(() => {
+          backToWorkout();
+        }, 1500);
         return;
       }
     }
 
     saveState();
-    renderWorkout();
-  };
 
-  // Save weight
-  window.saveWeight = function(id, val) {
-    const workout = getTodayWorkout();
-    if (!workout) return;
-    if (!workout.exercises[id]) workout.exercises[id] = {};
-    workout.exercises[id].weight = val;
-    saveState();
-  };
+    // Update button
+    const btn = document.getElementById('btn-complete-exercise');
+    if (btn) {
+      btn.classList.add('completed');
+      btn.textContent = '✓ Concluido';
+    }
+
+    showToast('Exercicio concluido! ✓');
+
+    // Auto-advance to next exercise after a moment
+    if (currentDayId) {
+      const day = EXERCISE_DB[currentDayId];
+      if (day) {
+        const nextEx = day.exercises.find(ex => !state.completedExercises[ex.id]);
+        if (nextEx) {
+          setTimeout(() => {
+            openExercise(currentDayId, nextEx.id);
+          }, 1200);
+        }
+      }
+    }
+  }
 
   // ── Timer ──
-  window.startTimer = function(seconds, name) {
-    timerRemaining = seconds;
-    const overlay = document.createElement('div');
-    overlay.className = 'timer-overlay';
-    overlay.id = 'timer-overlay';
-    overlay.innerHTML = `
-      <div class="bg-white rounded-3xl p-8 w-80 text-center shadow-2xl">
-        <h3 class="font-heading text-lg font-bold mb-1">${name}</h3>
-        <p class="text-txt-sec text-sm mb-6">Mantenha a posicao!</p>
-        <div class="timer-display mb-6" id="timer-num">${seconds}</div>
-        <div class="flex justify-center gap-4">
-          <button class="timer-btn grad-primary" onclick="pauseResumeTimer()">
-            <span id="timer-icon">⏸</span>
-          </button>
-          <button class="timer-btn" style="background:#DFE6E9; color:#636E72;" onclick="stopTimer()">
-            ⏹
-          </button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    let paused = false;
-    overlay._paused = false;
-
-    timerInterval = setInterval(() => {
-      if (overlay._paused) return;
-      timerRemaining--;
-      const numEl = document.getElementById('timer-num');
-      if (numEl) numEl.textContent = timerRemaining;
-      if (timerRemaining <= 0) {
-        clearInterval(timerInterval);
-        if (numEl) numEl.textContent = '0';
-        // Vibrate
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-        setTimeout(() => {
-          const ol = document.getElementById('timer-overlay');
-          if (ol) ol.remove();
-        }, 1500);
-      }
-    }, 1000);
-  };
-
-  window.pauseResumeTimer = function() {
-    const overlay = document.getElementById('timer-overlay');
-    if (!overlay) return;
-    overlay._paused = !overlay._paused;
-    const icon = document.getElementById('timer-icon');
-    if (icon) icon.textContent = overlay._paused ? '▶' : '⏸';
-  };
-
-  window.stopTimer = function() {
-    clearInterval(timerInterval);
-    const ol = document.getElementById('timer-overlay');
-    if (ol) ol.remove();
-  };
-
-  // ════════════════════════════════════
-  // CELEBRATION OVERLAY
-  // ════════════════════════════════════
-  function showCelebration() {
-    const overlay = document.getElementById('celebration-overlay');
-    const card = document.getElementById('celebration-card');
-    const confetti = document.getElementById('confetti-container');
-    overlay.classList.remove('hidden');
-
-    card.innerHTML = `
-      <div class="text-6xl mb-4">🎉</div>
-      <h2 class="font-heading text-2xl font-extrabold mb-2">Parabens Simone!</h2>
-      <p class="text-txt-sec mb-6">Treino completo! Voce e incrivel!</p>
-
-      <div class="section-title text-left">Sentiu dor?</div>
-      <div class="flex flex-wrap gap-2 mb-4" id="cele-body-parts">
-        <button class="body-part-btn" onclick="this.classList.toggle('active')">🦴 Pescoco</button>
-        <button class="body-part-btn" onclick="this.classList.toggle('active')">💪 Ombro</button>
-        <button class="body-part-btn" onclick="this.classList.toggle('active')">🦵 Joelho Dir.</button>
-        <button class="body-part-btn" onclick="this.classList.toggle('active')">🔙 Lombar</button>
-        <button class="body-part-btn" onclick="this.classList.toggle('active')">📍 Outro</button>
-      </div>
-
-      <div class="section-title text-left">Nivel da dor</div>
-      <div class="flex gap-2 mb-4" id="cele-pain-level">
-        <button class="pain-btn" onclick="selectCelePain(this,1)">1</button>
-        <button class="pain-btn" onclick="selectCelePain(this,2)">2</button>
-        <button class="pain-btn" onclick="selectCelePain(this,3)">3</button>
-        <button class="pain-btn" onclick="selectCelePain(this,4)">4</button>
-        <button class="pain-btn" onclick="selectCelePain(this,5)">5</button>
-      </div>
-
-      <div class="section-title text-left">Como se sente?</div>
-      <div class="flex gap-3 mb-4" id="cele-mood">
-        <button class="mood-btn" onclick="selectCeleMood(this,'happy')">😊</button>
-        <button class="mood-btn" onclick="selectCeleMood(this,'neutral')">😐</button>
-        <button class="mood-btn" onclick="selectCeleMood(this,'tired')">😮‍💨</button>
-        <button class="mood-btn" onclick="selectCeleMood(this,'sad')">😔</button>
-      </div>
-
-      <textarea class="input-field mb-4" id="cele-notes" placeholder="Observacoes..." rows="2"></textarea>
-
-      <button class="w-full btn-gradient grad-success py-3 rounded-2xl mb-2" onclick="saveCelebration()">Salvar e Fechar</button>
-      <button class="w-full btn-outline rounded-2xl" onclick="closeCelebration()">Pular</button>
-    `;
-
-    setTimeout(() => {
-      card.style.transform = 'scale(1)';
-      card.style.opacity = '1';
-    }, 50);
-
-    // Confetti
-    spawnConfetti(confetti);
+  function toggleTimer(duration) {
+    const btn = document.getElementById('timer-start-btn');
+    if (timerInterval) {
+      stopTimer();
+      btn.textContent = 'Continuar';
+    } else {
+      if (timerRemaining <= 0) timerRemaining = duration;
+      btn.textContent = 'Pausar';
+      timerInterval = setInterval(() => {
+        timerRemaining--;
+        updateTimerDisplay();
+        if (timerRemaining <= 0) {
+          stopTimer();
+          btn.textContent = 'Iniciar';
+          showToast('Tempo esgotado! ⏱️');
+          // Vibrate if available
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        }
+      }, 1000);
+    }
   }
 
-  let celePainLevel = 0;
-  let celeMood = '';
+  function resetTimer(duration) {
+    stopTimer();
+    timerRemaining = duration;
+    updateTimerDisplay();
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.textContent = 'Iniciar';
+  }
 
-  window.selectCelePain = function(btn, level) {
-    celePainLevel = level;
-    $$('#cele-pain-level .pain-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  };
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
 
-  window.selectCeleMood = function(btn, mood) {
-    celeMood = mood;
-    $$('#cele-mood .mood-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  };
+  function updateTimerDisplay() {
+    const el = document.getElementById('timer-display');
+    if (el) el.textContent = timerRemaining;
+  }
 
-  window.saveCelebration = function() {
-    const today = todayStr();
-    const parts = $$('#cele-body-parts .body-part-btn.active').map(b => b.textContent.trim());
-    const notes = document.getElementById('cele-notes')?.value || '';
-    state.painDiary[today] = {
-      parts: parts,
-      level: celePainLevel,
-      mood: celeMood,
-      notes: notes
+  // ══════════════════════════════════════
+  //  HEALTH SCREEN
+  // ══════════════════════════════════════
+  function renderHealth() {
+    const todayData = state.healthLog[today()] || {};
+
+    // Pre-fill values
+    if (todayData.sleep) document.getElementById('health-sleep').value = todayData.sleep;
+    if (todayData.quality) document.getElementById('health-sleep-quality').value = todayData.quality;
+    if (todayData.weight) document.getElementById('health-weight').value = todayData.weight;
+    if (todayData.steps) document.getElementById('health-steps').value = todayData.steps;
+    if (todayData.pain) document.getElementById('health-pain').value = todayData.pain;
+    if (todayData.mood) selectMood(todayData.mood);
+
+    renderWeightChart();
+  }
+
+  function selectMood(mood) {
+    selectedMood = mood;
+    document.querySelectorAll('.mood-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mood === mood);
+    });
+  }
+
+  function saveHealth() {
+    const d = today();
+    state.healthLog[d] = {
+      sleep: parseFloat(document.getElementById('health-sleep').value) || null,
+      quality: document.getElementById('health-sleep-quality').value || null,
+      weight: parseFloat(document.getElementById('health-weight').value) || null,
+      steps: parseInt(document.getElementById('health-steps').value) || null,
+      pain: document.getElementById('health-pain').value || null,
+      mood: selectedMood || null,
     };
     saveState();
-    closeCelebration();
-  };
-
-  window.closeCelebration = function() {
-    const overlay = document.getElementById('celebration-overlay');
-    const card = document.getElementById('celebration-card');
-    card.style.transform = 'scale(0.9)';
-    card.style.opacity = '0';
-    setTimeout(() => {
-      overlay.classList.add('hidden');
-      document.getElementById('confetti-container').innerHTML = '';
-    }, 300);
-  };
-
-  function spawnConfetti(container) {
-    const colors = ['#667EEA','#764BA2','#F093FB','#F5576C','#11998E','#38EF7D','#F2994A','#F2C94C'];
-    for (let i = 0; i < 60; i++) {
-      const piece = document.createElement('div');
-      piece.className = 'confetti-piece';
-      piece.style.left = Math.random() * 100 + '%';
-      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-      piece.style.animationDuration = (2 + Math.random() * 3) + 's';
-      piece.style.animationDelay = Math.random() * 1 + 's';
-      piece.style.width = (6 + Math.random() * 8) + 'px';
-      piece.style.height = (6 + Math.random() * 8) + 'px';
-      piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-      container.appendChild(piece);
-    }
+    showToast('Registro salvo! ❤️');
+    renderWeightChart();
   }
 
-  // ════════════════════════════════════
-  // HEALTH TAB
-  // ════════════════════════════════════
-  function renderHealth() {
-    const el = $('#health-content');
-    const today = todayStr();
-    const h = state.health[today] || {};
+  function renderWeightChart() {
+    const ctx = document.getElementById('weight-chart');
+    if (!ctx) return;
 
-    // 7-day weight data for chart
-    const weightData = [];
-    const chartLabels = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const ds = dateStr(d);
-      const hd = state.health[ds];
-      chartLabels.push(DAY_NAMES_SHORT[d.getDay()]);
-      weightData.push(hd && hd.weight ? parseFloat(hd.weight) : null);
+    // Gather weight data (last 14 entries)
+    const entries = Object.entries(state.healthLog)
+      .filter(([_, v]) => v.weight)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-14);
+
+    const labels = entries.map(([d]) => {
+      const parts = d.split('-');
+      return `${parts[2]}/${parts[1]}`;
+    });
+    const data = entries.map(([_, v]) => v.weight);
+
+    if (weightChart) weightChart.destroy();
+
+    if (data.length === 0) {
+      // Empty state
+      ctx.style.display = 'none';
+      return;
     }
+    ctx.style.display = '';
 
-    // History
-    let historyHTML = '';
-    for (let i = 1; i <= 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const ds = dateStr(d);
-      const hd = state.health[ds];
-      if (hd) {
-        const moodMap = { happy: '😊', neutral: '😐', tired: '😮‍💨', sad: '😔' };
-        historyHTML += `
-          <div class="history-item flex justify-between items-center">
-            <div>
-              <span class="font-semibold text-sm">${d.getDate()}/${d.getMonth()+1}</span>
-              <span class="text-txt-sec text-xs ml-2">${DAY_NAMES_SHORT[d.getDay()]}</span>
-            </div>
-            <div class="flex items-center gap-3 text-sm">
-              ${hd.weight ? `<span>⚖️ ${hd.weight}kg</span>` : ''}
-              ${hd.sleep ? `<span>😴 ${hd.sleep}h</span>` : ''}
-              ${hd.mood ? `<span>${moodMap[hd.mood] || ''}</span>` : ''}
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    el.innerHTML = `
-      <h1 class="font-heading text-2xl font-bold mt-4 mb-5">Saude</h1>
-
-      <!-- Today's Health -->
-      <div class="card mb-5">
-        <h3 class="font-heading text-base font-bold mb-4">Registro de Hoje</h3>
-
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="text-xs font-semibold text-txt-sec block mb-1">😴 Sono (horas)</label>
-            <input type="number" class="input-field" id="h-sleep" value="${h.sleep || ''}" placeholder="7" step="0.5" min="0" max="24" onchange="saveHealthField('sleep', this.value)">
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-txt-sec block mb-1">⚖️ Peso (kg)</label>
-            <input type="number" class="input-field" id="h-weight" value="${h.weight || ''}" placeholder="65" step="0.1" onchange="saveHealthField('weight', this.value)">
-          </div>
-        </div>
-
-        <div class="mb-4">
-          <label class="text-xs font-semibold text-txt-sec block mb-1">👣 Passos</label>
-          <input type="number" class="input-field" id="h-steps" value="${h.steps || ''}" placeholder="5000" onchange="saveHealthField('steps', this.value)">
-        </div>
-
-        <div class="mb-2">
-          <label class="text-xs font-semibold text-txt-sec block mb-2">Humor</label>
-          <div class="flex gap-3" id="health-mood">
-            ${['happy','neutral','tired','sad'].map(m => {
-              const emojis = { happy: '😊', neutral: '😐', tired: '😮‍💨', sad: '😔' };
-              return `<button class="mood-btn ${h.mood === m ? 'active' : ''}" onclick="saveHealthMood('${m}')">${emojis[m]}</button>`;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- Pain Log -->
-      <div class="card mb-5">
-        <h3 class="font-heading text-base font-bold mb-3">Registro de Dor</h3>
-
-        <div class="flex flex-wrap gap-2 mb-3" id="health-body-parts">
-          ${['🦴 Pescoco','💪 Ombro','🦵 Joelho Dir.','🔙 Lombar','📍 Outro'].map(p => {
-            const pd = state.painDiary[today];
-            const isActive = pd && pd.parts && pd.parts.includes(p);
-            return `<button class="body-part-btn ${isActive ? 'active' : ''}" onclick="toggleHealthPart(this)">${p}</button>`;
-          }).join('')}
-        </div>
-
-        <div class="flex gap-2 mb-3" id="health-pain-level">
-          ${[1,2,3,4,5].map(l => {
-            const pd = state.painDiary[today];
-            const isActive = pd && pd.level === l;
-            return `<button class="pain-btn ${isActive ? 'active' : ''}" onclick="saveHealthPainLevel(this, ${l})">${l}</button>`;
-          }).join('')}
-        </div>
-
-        <textarea class="input-field" id="h-pain-notes" rows="2" placeholder="Observacoes sobre dor..." onchange="saveHealthPainNotes(this.value)">${(state.painDiary[today] && state.painDiary[today].notes) || ''}</textarea>
-      </div>
-
-      <!-- Weight Chart -->
-      <div class="section-title">Peso - Ultimos 7 dias</div>
-      <div class="card mb-5">
-        ${renderWeightChart(weightData, chartLabels)}
-      </div>
-
-      <!-- History -->
-      <div class="section-title">Historico Recente</div>
-      ${historyHTML || '<p class="text-txt-sec text-sm mb-6">Nenhum registro ainda.</p>'}
-      <div class="h-8"></div>
-    `;
-  }
-
-  function renderWeightChart(data, labels) {
-    const validData = data.filter(d => d !== null);
-    if (validData.length < 2) return '<p class="text-txt-sec text-sm text-center py-4">Registre seu peso por alguns dias para ver o grafico.</p>';
-
-    const w = 300, h = 120, pad = 30;
-    const min = Math.min(...validData) - 1;
-    const max = Math.max(...validData) + 1;
-    const range = max - min || 1;
-
-    const points = [];
-    data.forEach((val, i) => {
-      if (val !== null) {
-        const x = pad + (i / (data.length - 1)) * (w - pad * 2);
-        const y = h - pad - ((val - min) / range) * (h - pad * 2);
-        points.push({ x, y, val });
+    weightChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Peso (kg)',
+          data,
+          borderColor: '#6358E1',
+          backgroundColor: 'rgba(99,88,225,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: '#6358E1',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { grid: { color: '#F2F2F5' }, ticks: { font: { size: 10 } } }
+        }
       }
     });
-
-    const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-    const areaD = pathD + ` L${points[points.length-1].x},${h - pad} L${points[0].x},${h - pad} Z`;
-
-    return `
-      <svg viewBox="0 0 ${w} ${h}" class="w-full">
-        <defs>
-          <linearGradient id="chartGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#667EEA"/>
-            <stop offset="100%" stop-color="#764BA2"/>
-          </linearGradient>
-          <linearGradient id="chartAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#667EEA" stop-opacity="0.15"/>
-            <stop offset="100%" stop-color="#667EEA" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <path d="${areaD}" class="chart-area"/>
-        <path d="${pathD}" class="chart-line"/>
-        ${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="4" class="chart-dot"/>`).join('')}
-        ${labels.map((l, i) => `<text x="${pad + (i / (labels.length - 1)) * (w - pad * 2)}" y="${h - 5}" text-anchor="middle" fill="#B2BEC3" font-size="10" font-family="Nunito">${l}</text>`).join('')}
-      </svg>
-    `;
   }
 
-  // Health save functions
-  window.saveHealthField = function(field, val) {
-    const today = todayStr();
-    if (!state.health[today]) state.health[today] = {};
-    state.health[today][field] = val;
-    saveState();
-  };
-
-  window.saveHealthMood = function(mood) {
-    const today = todayStr();
-    if (!state.health[today]) state.health[today] = {};
-    state.health[today].mood = mood;
-    saveState();
-    $$('#health-mood .mood-btn').forEach(b => b.classList.remove('active'));
-    event.target.closest('.mood-btn').classList.add('active');
-  };
-
-  window.toggleHealthPart = function(btn) {
-    btn.classList.toggle('active');
-    const today = todayStr();
-    if (!state.painDiary[today]) state.painDiary[today] = { parts: [], level: 0, notes: '' };
-    state.painDiary[today].parts = $$('#health-body-parts .body-part-btn.active').map(b => b.textContent.trim());
-    saveState();
-  };
-
-  window.saveHealthPainLevel = function(btn, level) {
-    const today = todayStr();
-    if (!state.painDiary[today]) state.painDiary[today] = { parts: [], level: 0, notes: '' };
-    state.painDiary[today].level = level;
-    $$('#health-pain-level .pain-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    saveState();
-  };
-
-  window.saveHealthPainNotes = function(val) {
-    const today = todayStr();
-    if (!state.painDiary[today]) state.painDiary[today] = { parts: [], level: 0, notes: '' };
-    state.painDiary[today].notes = val;
-    saveState();
-  };
-
-  // ════════════════════════════════════
-  // PROGRESS TAB
-  // ════════════════════════════════════
+  // ══════════════════════════════════════
+  //  PROGRESS SCREEN
+  // ══════════════════════════════════════
   function renderProgress() {
-    const el = $('#progress-content');
-    const streak = calculateStreak();
-    const total = countTotalWorkouts();
-    const avgPerWeek = total > 0 ? Math.min((total / Math.max(1, Math.ceil(total / 6))), 6).toFixed(1) : '0';
+    renderCalendar();
+    renderProgressStats();
+    renderMedals();
+  }
 
-    // Calendar
-    const year = state.calendarYear;
-    const month = state.calendarMonth;
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = todayStr();
+  function changeMonth(delta) {
+    calendarMonth += delta;
+    if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+    if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+    renderCalendar();
+  }
 
-    let calHTML = `
-      <div class="flex justify-between items-center mb-3">
-        <button class="p-2" onclick="changeMonth(-1)">
-          <svg width="20" height="20" fill="none" stroke="#636E72" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <h3 class="font-heading text-base font-bold">${MONTH_NAMES[month]} ${year}</h3>
-        <button class="p-2" onclick="changeMonth(1)">
-          <svg width="20" height="20" fill="none" stroke="#636E72" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-      </div>
-      <div class="grid grid-cols-7 gap-1 mb-2">
-        ${DAY_NAMES_SHORT.map(d => `<div class="text-center text-xs font-semibold text-txt-sec">${d.charAt(0)}</div>`).join('')}
-      </div>
-      <div class="grid grid-cols-7 gap-1">
-    `;
+  function renderCalendar() {
+    document.getElementById('calendar-month-label').textContent =
+      `${MONTH_NAMES[calendarMonth]} ${calendarYear}`;
+
+    const grid = document.getElementById('calendar-grid');
+    const firstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+    const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+    const todayDate = today();
+
+    let html = '';
+    // Day names
+    DAY_NAMES_SHORT.forEach(d => {
+      html += `<div class="cal-day-name">${d}</div>`;
+    });
 
     // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
-      calHTML += '<div class="cal-cell"></div>';
+      html += `<div class="cal-day empty"></div>`;
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const dow = new Date(year, month, d).getDay();
-      const isToday = ds === today;
-      const hasWorkout = state.workouts[ds] && state.workouts[ds].completed;
-      const isRest = dow === 0;
-      let cls = '';
-      if (hasWorkout) cls = 'has-workout';
-      else if (isToday) cls = 'today-cell';
-      else if (isRest) cls = 'rest-cell';
-      calHTML += `<div class="cal-cell ${cls}">${d}</div>`;
+      const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = dateStr === todayDate;
+      const dayComps = state.completedDays[dateStr] || [];
+
+      let cls = 'cal-day';
+      if (isToday) cls += ' today';
+      if (dayComps.length >= 1) cls += ' done';
+
+      html += `<div class="${cls}">${d}</div>`;
     }
-    calHTML += '</div>';
 
-    // Medals
-    const medals = [
-      { emoji: '🥉', label: '7 dias', target: 7, achieved: total >= 7 },
-      { emoji: '🥈', label: '30 dias', target: 30, achieved: total >= 30 },
-      { emoji: '🥇', label: '90 dias', target: 90, achieved: total >= 90 },
-    ];
+    grid.innerHTML = html;
+  }
 
-    // Muscle group breakdown
-    const muscleCount = {};
-    Object.values(state.workouts).forEach(w => {
-      if (!w.completed || !w.day) return;
-      const dayData = EXERCISE_DB[w.day];
-      if (!dayData) return;
-      dayData.exercises.forEach(ex => {
-        const group = ex.muscleGroup.split('/')[0].trim();
-        muscleCount[group] = (muscleCount[group] || 0) + 1;
-      });
+  function renderProgressStats() {
+    const totalWorkouts = getTotalCompleted();
+    const totalExercises = Object.keys(state.completedExercises).length;
+    const streak = calculateStreak();
+    const totalMins = state.totalMinutes || 0;
+
+    document.getElementById('progress-stats').innerHTML = `
+      <div class="progress-stat-card">
+        <div class="psc-number">${totalWorkouts}</div>
+        <div class="psc-label">Treinos Completos</div>
+      </div>
+      <div class="progress-stat-card">
+        <div class="psc-number">${totalExercises}</div>
+        <div class="psc-label">Exercicios Feitos</div>
+      </div>
+      <div class="progress-stat-card">
+        <div class="psc-number">${streak}</div>
+        <div class="psc-label">Dias Seguidos</div>
+      </div>
+      <div class="progress-stat-card">
+        <div class="psc-number">${totalMins}</div>
+        <div class="psc-label">Minutos Totais</div>
+      </div>
+    `;
+  }
+
+  function calculateStreak() {
+    let streak = 0;
+    const d = new Date();
+    // Check if today has a workout (if not Sunday)
+    while (true) {
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayOfWeek = d.getDay();
+
+      if (dayOfWeek === 0) {
+        // Sunday counts as rest day in a streak
+        d.setDate(d.getDate() - 1);
+        if (streak > 0) continue; // keep counting back
+        else break;
+      }
+
+      if (state.completedDays[dateStr] && state.completedDays[dateStr].length > 0) {
+        streak++;
+        d.setDate(d.getDate() - 1);
+      } else {
+        // If it's today and no workout yet, check yesterday
+        if (streak === 0 && dateStr === today()) {
+          d.setDate(d.getDate() - 1);
+          continue;
+        }
+        break;
+      }
+    }
+    return streak;
+  }
+
+  function renderMedals() {
+    const totalWorkouts = getTotalCompleted();
+    const streak = calculateStreak();
+    const allSixDone = [1,2,3,4,5,6].every(id => isDayFullyCompleted(id));
+
+    const grid = document.getElementById('medals-grid');
+    let html = '';
+
+    MEDALS.forEach(m => {
+      let unlocked = false;
+      if (typeof m.threshold === 'number') {
+        unlocked = totalWorkouts >= m.threshold;
+      } else if (m.threshold === 'streak3') {
+        unlocked = streak >= 3;
+      } else if (m.threshold === 'streak7') {
+        unlocked = streak >= 7;
+      } else if (m.threshold === 'alldays') {
+        unlocked = allSixDone;
+      }
+
+      html += `
+        <div class="medal-card ${unlocked ? '' : 'locked'}">
+          <div class="medal-emoji">${m.emoji}</div>
+          <div class="medal-name">${m.name}</div>
+          <div class="medal-desc">${m.desc}</div>
+        </div>
+      `;
     });
-    const maxMuscle = Math.max(...Object.values(muscleCount), 1);
-    const muscleGroups = Object.entries(muscleCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const barColors = ['#667EEA','#F093FB','#11998E','#F2994A','#764BA2','#38EF7D'];
 
-    el.innerHTML = `
-      <h1 class="font-heading text-2xl font-bold mt-4 mb-5">Progresso</h1>
-
-      <!-- Calendar -->
-      <div class="card mb-5">${calHTML}</div>
-
-      <!-- Stats -->
-      <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="stat-card">
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#667EEA,#764BA2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${total}</div>
-          <div class="text-txt-sec text-xs font-semibold">Total Treinos</div>
-        </div>
-        <div class="stat-card">
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#F2994A,#F2C94C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${streak}</div>
-          <div class="text-txt-sec text-xs font-semibold">Sequencia</div>
-        </div>
-        <div class="stat-card">
-          <div class="font-heading text-2xl font-extrabold" style="background:linear-gradient(135deg,#11998E,#38EF7D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${avgPerWeek}</div>
-          <div class="text-txt-sec text-xs font-semibold">Media/Sem</div>
-        </div>
-      </div>
-
-      <!-- Medals -->
-      <div class="section-title">Medalhas</div>
-      <div class="grid grid-cols-3 gap-3 mb-5">
-        ${medals.map(m => `
-          <div class="medal-card ${m.achieved ? 'achieved' : ''}">
-            <div class="text-3xl mb-1 ${m.achieved ? '' : 'grayscale opacity-40'}" style="${m.achieved ? '' : 'filter:grayscale(1);opacity:0.4'}">${m.emoji}</div>
-            <div class="font-heading text-sm font-bold ${m.achieved ? '' : 'text-txt-sec'}">${m.label}</div>
-            <div class="text-xs text-txt-sec">${m.achieved ? 'Conquistada!' : `${total}/${m.target}`}</div>
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- Muscle Groups -->
-      ${muscleGroups.length > 0 ? `
-        <div class="section-title">Grupos Musculares</div>
-        <div class="card mb-8">
-          ${muscleGroups.map((mg, i) => `
-            <div class="flex items-center gap-3 ${i > 0 ? 'mt-3' : ''}">
-              <div class="w-20 text-xs font-semibold text-txt-sec truncate">${mg[0]}</div>
-              <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
-                <div class="bar-chart-bar h-full" style="width:${(mg[1]/maxMuscle)*100}%; background:${barColors[i % barColors.length]}"></div>
-              </div>
-              <div class="text-xs font-bold w-6 text-right">${mg[1]}</div>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-      <div class="h-8"></div>
-    `;
+    grid.innerHTML = html;
   }
 
-  window.changeMonth = function(delta) {
-    state.calendarMonth += delta;
-    if (state.calendarMonth > 11) { state.calendarMonth = 0; state.calendarYear++; }
-    if (state.calendarMonth < 0) { state.calendarMonth = 11; state.calendarYear--; }
-    saveState();
-    renderProgress();
-  };
-
-  // ════════════════════════════════════
-  // SETTINGS TAB
-  // ════════════════════════════════════
+  // ══════════════════════════════════════
+  //  SETTINGS SCREEN
+  // ══════════════════════════════════════
   function renderSettings() {
-    const el = $('#settings-content');
+    const reminderCheckbox = document.getElementById('setting-reminder');
+    const reminderTimeItem = document.getElementById('reminder-time-item');
+    const reminderTimeInput = document.getElementById('setting-reminder-time');
 
-    el.innerHTML = `
-      <h1 class="font-heading text-2xl font-bold mt-4 mb-5">Configuracoes</h1>
-
-      <!-- Profile Card -->
-      <div class="card-gradient grad-primary mb-5" style="position:relative; overflow:hidden;">
-        <div style="position:absolute; top:-10px; right:-10px; font-size:60px; opacity:0.12;">🏋️</div>
-        <div class="flex items-center gap-4">
-          <img src="profile.jpg" alt="Simone" class="w-16 h-16 rounded-full object-cover border-2 border-white/30">
-          <div>
-            <h2 class="font-heading text-xl font-bold">${state.name} Trombini</h2>
-            <p class="text-white/70 text-sm">${state.age} anos</p>
-            <p class="text-white/60 text-xs mt-1">${state.restrictions}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Reminders -->
-      <div class="card mb-4">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="font-heading text-base font-bold">Lembretes</h3>
-            <p class="text-txt-sec text-xs">Receba notificacao para treinar</p>
-          </div>
-          <div class="toggle-switch ${state.remindersEnabled ? 'on' : ''}" onclick="toggleReminders()"></div>
-        </div>
-        ${state.remindersEnabled ? `
-          <div>
-            <label class="text-xs font-semibold text-txt-sec block mb-1">Horario</label>
-            <input type="time" class="input-field" value="${state.reminderTime}" onchange="saveReminderTime(this.value)">
-          </div>
-        ` : ''}
-      </div>
-
-      <!-- About -->
-      <div class="card mb-4">
-        <h3 class="font-heading text-base font-bold mb-2">Sobre o App</h3>
-        <p class="text-txt-sec text-sm leading-relaxed">
-          App de treino personalizado para Simone Trombini.
-          Exercicios adaptados para artrose no joelho direito e cervicalgia.
-          6 dias de treino + 1 dia de descanso.
-        </p>
-        <p class="text-txt-sec text-xs mt-3">Versao 2.0 — PWA Premium</p>
-      </div>
-
-      <!-- Reset -->
-      <button class="w-full btn-outline rounded-2xl text-red-400 border-red-200 mb-8" onclick="confirmReset()">
-        Resetar Todos os Dados
-      </button>
-      <div class="h-8"></div>
-    `;
+    if (state.settings.reminder) {
+      reminderCheckbox.checked = true;
+      reminderTimeItem.style.display = '';
+    } else {
+      reminderCheckbox.checked = false;
+      reminderTimeItem.style.display = 'none';
+    }
+    reminderTimeInput.value = state.settings.reminderTime || '08:00';
   }
 
-  window.toggleReminders = function() {
-    state.remindersEnabled = !state.remindersEnabled;
-    if (state.remindersEnabled && 'Notification' in window) {
-      Notification.requestPermission();
-    }
+  function toggleReminder() {
+    state.settings.reminder = document.getElementById('setting-reminder').checked;
     saveState();
     renderSettings();
-  };
 
-  window.saveReminderTime = function(val) {
-    state.reminderTime = val;
+    if (state.settings.reminder && 'Notification' in window) {
+      Notification.requestPermission();
+    }
+    showToast(state.settings.reminder ? 'Lembrete ativado! 🔔' : 'Lembrete desativado');
+  }
+
+  function saveReminderTime() {
+    state.settings.reminderTime = document.getElementById('setting-reminder-time').value;
     saveState();
-  };
+  }
 
-  window.confirmReset = function() {
-    if (confirm('Tem certeza que deseja apagar TODOS os dados? Esta acao nao pode ser desfeita.')) {
+  function showAbout() {
+    showToast('Feito com ❤️ para Simone Trombini');
+  }
+
+  function resetData() {
+    if (confirm('Tem certeza que deseja apagar todos os dados? Essa acao nao pode ser desfeita.')) {
       localStorage.removeItem(LS_KEY);
       state = getDefaultState();
       saveState();
-      renderCurrentTab();
+      switchTab('home');
+      showToast('Dados resetados');
     }
+  }
+
+  // ══════════════════════════════════════
+  //  SERVICE WORKER
+  // ══════════════════════════════════════
+  function registerSW() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  }
+
+  // ══════════════════════════════════════
+  //  INIT
+  // ══════════════════════════════════════
+  function init() {
+    registerSW();
+    switchTab('home');
+  }
+
+  // Start
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Public API
+  return {
+    switchTab,
+    openWorkout,
+    openExercise,
+    startFirstExercise,
+    backToTab,
+    backToWorkout,
+    completeExercise,
+    toggleTimer,
+    resetTimer,
+    selectMood,
+    saveHealth,
+    changeMonth,
+    toggleReminder,
+    saveReminderTime,
+    showAbout,
+    resetData,
   };
-
-  // ════════════════════════════════════
-  // TAB NAVIGATION
-  // ════════════════════════════════════
-  function switchTab(tab) {
-    activeTab = tab;
-    expandedExercise = null;
-
-    // Update panels
-    $$('.tab-panel').forEach(p => p.classList.remove('active'));
-    const panel = document.getElementById('tab-' + tab);
-    if (panel) panel.classList.add('active');
-
-    // Update tab bar
-    $$('.tab-btn').forEach(b => b.classList.remove('active'));
-    const btn = $(`.tab-btn[data-tab="${tab}"]`);
-    if (btn) btn.classList.add('active');
-
-    renderCurrentTab();
-
-    // Scroll to top
-    window.scrollTo(0, 0);
-  }
-  window.switchTab = switchTab;
-
-  function renderCurrentTab() {
-    switch(activeTab) {
-      case 'home': renderHome(); break;
-      case 'workout': renderWorkout(); break;
-      case 'health': renderHealth(); break;
-      case 'progress': renderProgress(); break;
-      case 'settings': renderSettings(); break;
-    }
-  }
-
-  // Tab bar clicks
-  $$('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  // ════════════════════════════════════
-  // SERVICE WORKER
-  // ════════════════════════════════════
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
-  }
-
-  // ════════════════════════════════════
-  // NOTIFICATION SCHEDULER
-  // ════════════════════════════════════
-  function checkReminder() {
-    if (!state.remindersEnabled) return;
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const now = new Date();
-    const [hh, mm] = state.reminderTime.split(':').map(Number);
-    if (now.getHours() === hh && now.getMinutes() === mm && now.getDay() !== 0) {
-      const tDay = DAY_MAP[now.getDay()];
-      const dayData = EXERCISE_DB[tDay];
-      if (dayData) {
-        new Notification('Hora do Treino!', {
-          body: `${dayData.dayName} te espera, Simone!`,
-          icon: 'icons/icon-192.png'
-        });
-      }
-    }
-  }
-  setInterval(checkReminder, 60000);
-
-  // ════════════════════════════════════
-  // INIT
-  // ════════════════════════════════════
-  renderHome();
 
 })();

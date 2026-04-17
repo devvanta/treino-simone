@@ -6,124 +6,295 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Treino Simone">
-  <meta name="theme-color" content="#667EEA">
+  <meta name="theme-color" content="#6358E1">
   <meta name="description" content="App de treino personalizado para Simone Trombini">
 
   <title>Treino da Simone</title>
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-
-  <!-- Apple Touch Icon -->
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="icons/icon-192.png">
-
-  <!-- Google Fonts -->
+  <!-- Fonts: Inter (headings) + Nunito (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            heading: ['Inter', 'sans-serif'],
-            body: ['Nunito', 'sans-serif'],
-          },
-          colors: {
-            bg: '#F7F8FC',
-            card: '#FFFFFF',
-            txt: '#2D3436',
-            'txt-sec': '#636E72',
-          },
-          borderRadius: {
-            '3xl': '24px',
-          }
-        }
-      }
-    }
-  </script>
 
-  <!-- Custom Styles -->
+  <!-- Chart.js for weight chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+  <!-- Custom styles -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="font-body bg-bg text-txt antialiased">
+<body>
 
-  <!-- ════════════════════════════════════ -->
-  <!-- TAB CONTENT AREA -->
-  <!-- ════════════════════════════════════ -->
-  <main id="app-main" class="pb-24 min-h-screen">
-    <!-- Tab: Home -->
-    <section id="tab-home" class="tab-panel active px-5 pt-safe">
-      <div id="home-content"></div>
-    </section>
+  <!-- ============ HOME SCREEN ============ -->
+  <div id="screen-home" class="screen active">
+    <!-- Header -->
+    <div class="home-header">
+      <div class="home-header-text">
+        <h1>Oi, Simone</h1>
+        <p>Vamos ver sua atividade</p>
+      </div>
+      <img src="profile.jpg" alt="Simone" class="profile-photo">
+    </div>
 
-    <!-- Tab: Treino -->
-    <section id="tab-workout" class="tab-panel px-5 pt-safe">
-      <div id="workout-content"></div>
-    </section>
-
-    <!-- Tab: Saude -->
-    <section id="tab-health" class="tab-panel px-5 pt-safe">
-      <div id="health-content"></div>
-    </section>
-
-    <!-- Tab: Progresso -->
-    <section id="tab-progress" class="tab-panel px-5 pt-safe">
-      <div id="progress-content"></div>
-    </section>
-
-    <!-- Tab: Config -->
-    <section id="tab-settings" class="tab-panel px-5 pt-safe">
-      <div id="settings-content"></div>
-    </section>
-  </main>
-
-  <!-- ════════════════════════════════════ -->
-  <!-- CELEBRATION OVERLAY -->
-  <!-- ════════════════════════════════════ -->
-  <div id="celebration-overlay" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-    <div class="relative z-10 flex items-center justify-center min-h-screen p-6">
-      <div id="celebration-card" class="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl transform scale-90 opacity-0 transition-all duration-500">
-        <!-- Filled by JS -->
+    <!-- Stats grid -->
+    <div class="stats-grid">
+      <div class="stat-card tall">
+        <div class="stat-header">
+          <span class="stat-emoji">💪</span> Concluidos
+        </div>
+        <div class="stat-number" id="stat-completed">0</div>
+        <div class="stat-label">Treinos Completos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-emoji">😊</span> Em progresso
+        </div>
+        <div class="stat-number" id="stat-progress">0</div>
+        <div class="stat-label">Treinos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-emoji">⏱️</span> Tempo total
+        </div>
+        <div class="stat-number" id="stat-minutes">0</div>
+        <div class="stat-label">Minutos</div>
       </div>
     </div>
-    <div id="confetti-container" class="fixed inset-0 pointer-events-none z-20"></div>
+
+    <!-- Discover workouts -->
+    <h2 class="section-title">Descubra seus treinos</h2>
+    <div class="workout-scroll" id="workout-scroll"></div>
+
+    <!-- Motivation banner -->
+    <div class="motivation-banner" id="motivation-banner">
+      <div class="mb-emoji">🎉</div>
+      <div class="mb-text">
+        <strong>Continue assim!</strong>
+        <span>Voce e mais dedicada que 88% das usuarias.</span>
+      </div>
+    </div>
   </div>
 
-  <!-- ════════════════════════════════════ -->
-  <!-- BOTTOM TAB BAR -->
-  <!-- ════════════════════════════════════ -->
-  <nav id="tab-bar" class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg shadow-[0_-4px_24px_rgba(0,0,0,0.06)] pb-safe">
-    <div class="flex justify-around items-center h-16 max-w-lg mx-auto">
-      <button class="tab-btn active" data-tab="home">
-        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
-        <span class="text-[10px] font-semibold">Inicio</span>
-      </button>
-      <button class="tab-btn" data-tab="workout">
-        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h4v12H4zM16 6h4v12h-4zM8 10h8v4H8z"/></svg>
-        <span class="text-[10px] font-semibold">Treino</span>
-      </button>
-      <button class="tab-btn" data-tab="health">
-        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-        <span class="text-[10px] font-semibold">Saude</span>
-      </button>
-      <button class="tab-btn" data-tab="progress">
-        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/></svg>
-        <span class="text-[10px] font-semibold">Progresso</span>
-      </button>
-      <button class="tab-btn" data-tab="settings">
-        <svg class="w-6 h-6 mx-auto mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-        <span class="text-[10px] font-semibold">Config</span>
-      </button>
+  <!-- ============ WORKOUTS TAB ============ -->
+  <div id="screen-workouts" class="screen">
+    <div class="workouts-tab-header">
+      <h1>Treinos</h1>
+      <p>Sua semana de treinos</p>
     </div>
+    <div class="workouts-tab-grid" id="workouts-tab-grid"></div>
+    <div id="rest-day-container"></div>
+  </div>
+
+  <!-- ============ WORKOUT DETAIL ============ -->
+  <div id="screen-workout-detail" class="screen">
+    <div id="workout-detail-content"></div>
+    <button class="btn-start-workout" id="btn-start-workout" onclick="App.startFirstExercise()">Comecar</button>
+  </div>
+
+  <!-- ============ EXERCISE DETAIL ============ -->
+  <div id="screen-exercise-detail" class="screen exercise-detail-screen">
+    <div id="exercise-detail-content"></div>
+  </div>
+
+  <!-- ============ HEALTH SCREEN ============ -->
+  <div id="screen-health" class="screen">
+    <div class="health-header">
+      <h1>Saude</h1>
+      <p>Acompanhe seu bem-estar</p>
+    </div>
+    <div class="health-content">
+      <!-- Sleep -->
+      <div class="health-section">
+        <h3>😴 Sono</h3>
+        <div class="health-input-group">
+          <div class="health-input-row">
+            <label>Horas</label>
+            <input type="number" id="health-sleep" min="0" max="24" step="0.5" placeholder="8">
+            <span class="unit">h</span>
+          </div>
+          <div class="health-input-row">
+            <label>Qualidade</label>
+            <select id="health-sleep-quality">
+              <option value="">Selecione</option>
+              <option value="otimo">Otimo</option>
+              <option value="bom">Bom</option>
+              <option value="regular">Regular</option>
+              <option value="ruim">Ruim</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weight -->
+      <div class="health-section">
+        <h3>⚖️ Peso</h3>
+        <div class="health-input-group">
+          <div class="health-input-row">
+            <label>Peso</label>
+            <input type="number" id="health-weight" min="30" max="200" step="0.1" placeholder="65.0">
+            <span class="unit">kg</span>
+          </div>
+        </div>
+        <div class="weight-chart-container">
+          <canvas id="weight-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Steps -->
+      <div class="health-section">
+        <h3>🚶 Passos</h3>
+        <div class="health-input-group">
+          <div class="health-input-row">
+            <label>Passos</label>
+            <input type="number" id="health-steps" min="0" max="50000" step="100" placeholder="5000">
+          </div>
+        </div>
+      </div>
+
+      <!-- Pain diary -->
+      <div class="health-section">
+        <h3>📝 Diario de Dor</h3>
+        <div class="pain-diary">
+          <textarea id="health-pain" placeholder="Como esta a dor hoje? Cervical, joelho..."></textarea>
+        </div>
+      </div>
+
+      <!-- Mood -->
+      <div class="health-section">
+        <h3>🎭 Humor</h3>
+        <div class="mood-selector" id="mood-selector">
+          <button class="mood-btn" data-mood="otimo" onclick="App.selectMood('otimo')">😄</button>
+          <button class="mood-btn" data-mood="bom" onclick="App.selectMood('bom')">🙂</button>
+          <button class="mood-btn" data-mood="neutro" onclick="App.selectMood('neutro')">😐</button>
+          <button class="mood-btn" data-mood="triste" onclick="App.selectMood('triste')">😢</button>
+          <button class="mood-btn" data-mood="dor" onclick="App.selectMood('dor')">😣</button>
+        </div>
+      </div>
+
+      <button class="btn-save-health" onclick="App.saveHealth()">Salvar Registro de Hoje</button>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS SCREEN ============ -->
+  <div id="screen-progress" class="screen">
+    <div class="progress-header">
+      <h1>Progresso</h1>
+      <p>Sua evolucao ao longo do tempo</p>
+    </div>
+    <div class="progress-content">
+      <div class="calendar-header">
+        <h3 id="calendar-month-label">Abril 2026</h3>
+        <div class="calendar-nav">
+          <button onclick="App.changeMonth(-1)">&#8249;</button>
+          <button onclick="App.changeMonth(1)">&#8250;</button>
+        </div>
+      </div>
+      <div class="calendar-grid" id="calendar-grid"></div>
+
+      <div class="progress-stats" id="progress-stats"></div>
+
+      <div class="medals-section">
+        <h3>Medalhas</h3>
+        <div class="medals-grid" id="medals-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS SCREEN ============ -->
+  <div id="screen-settings" class="screen">
+    <div class="settings-header">
+      <h1>Configuracoes</h1>
+    </div>
+    <div class="settings-content">
+      <!-- Profile card -->
+      <div class="settings-profile-card">
+        <img src="profile.jpg" alt="Simone">
+        <div class="spc-info">
+          <h3>Simone Trombini</h3>
+          <p>64 anos</p>
+          <span class="spc-restriction">Artrose na cervical e joelho direito</span>
+        </div>
+      </div>
+
+      <!-- Reminders -->
+      <div class="settings-group">
+        <h3>Lembretes</h3>
+        <div class="settings-item">
+          <div class="si-left">
+            <span class="si-icon">🔔</span>
+            <span class="si-label">Lembrete de treino</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="setting-reminder" onchange="App.toggleReminder()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item" id="reminder-time-item" style="display:none">
+          <div class="si-left">
+            <span class="si-icon">⏰</span>
+            <span class="si-label">Horario</span>
+          </div>
+          <input type="time" id="setting-reminder-time" value="08:00" onchange="App.saveReminderTime()" style="border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:15px;color:var(--text-grey);text-align:right;width:80px;">
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="settings-group">
+        <h3>Sobre</h3>
+        <div class="settings-item" onclick="App.showAbout()">
+          <div class="si-left">
+            <span class="si-icon">ℹ️</span>
+            <span class="si-label">Sobre o app</span>
+          </div>
+          <span class="si-right">&#8250;</span>
+        </div>
+        <div class="settings-item">
+          <div class="si-left">
+            <span class="si-icon">📱</span>
+            <span class="si-label">Versao</span>
+          </div>
+          <span class="si-right" style="font-size:13px;color:var(--text-grey)">2.0.0</span>
+        </div>
+      </div>
+
+      <!-- Reset -->
+      <button class="btn-reset" onclick="App.resetData()">Resetar Todos os Dados</button>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOM NAV ============ -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="home" onclick="App.switchTab('home')">
+      <span class="nav-icon">🏠</span>
+      Inicio
+    </button>
+    <button class="nav-item" data-tab="workouts" onclick="App.switchTab('workouts')">
+      <span class="nav-icon">💪</span>
+      Treinos
+    </button>
+    <button class="nav-item" data-tab="health" onclick="App.switchTab('health')">
+      <span class="nav-icon">❤️</span>
+      Saude
+    </button>
+    <button class="nav-item" data-tab="progress" onclick="App.switchTab('progress')">
+      <span class="nav-icon">📊</span>
+      Progresso
+    </button>
+    <button class="nav-item" data-tab="settings" onclick="App.switchTab('settings')">
+      <span class="nav-icon">⚙️</span>
+      Config
+    </button>
   </nav>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
 
   <!-- Scripts -->
   <script src="exercises.js"></script>
